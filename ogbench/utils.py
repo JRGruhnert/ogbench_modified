@@ -1,5 +1,6 @@
 import os
 import urllib.request
+import h5py
 
 import gymnasium
 import numpy as np
@@ -7,11 +8,69 @@ from tqdm import tqdm
 
 from ogbench.relabel_utils import add_oracle_reps, relabel_dataset
 
-DEFAULT_DATASET_DIR = '~/.ogbench/data'
-DATASET_URL = 'https://rail.eecs.berkeley.edu/datasets/ogbench'
+DEFAULT_DATASET_DIR = "~/.ogbench/data"
+DATASET_URL = "https://rail.eecs.berkeley.edu/datasets/ogbench"
 
 
-def load_dataset(dataset_path, ob_dtype=np.float32, action_dtype=np.float32, compact_dataset=False, add_info=False):
+def load_pixel_dataset(dataset_path, compact_dataset=False):
+    with h5py.File(dataset_path, "r") as f:
+        observations = {
+            "rgb": f["observations/rgb"][...],
+            "depth": f["observations/depth"][...],
+            "intrinsics": f["observations/intrinsics"][...],
+            "extrinsics": f["observations/extrinsics"][...],
+        }
+        actions = f["actions"][...].astype(np.float32)
+        terminals = f["terminals"][...].astype(np.float32)
+
+        info_all = {}
+        if "info" in f:
+            for k in f["info"].keys():
+                v = f[f"info/{k}"][...]
+                if len(v) == len(terminals):
+                    info_all[k] = v
+
+    if compact_dataset:
+        valids = 1.0 - terminals
+        new_terminals = np.concatenate([terminals[1:], [1.0]])
+        terminals = np.minimum(terminals + new_terminals, 1.0).astype(np.float32)
+        return dict(
+            observations=observations,
+            actions=actions,
+            terminals=terminals,
+            valids=valids,
+            info=info_all,
+        )
+
+    ob_mask = (1.0 - terminals).astype(bool)
+    next_ob_mask = np.concatenate([[False], ob_mask[:-1]])
+
+    next_observations = {k: v[next_ob_mask] for k, v in observations.items()}
+    observations = {k: v[ob_mask] for k, v in observations.items()}
+    actions = actions[ob_mask]
+    new_terminals = np.concatenate([terminals[1:], [1.0]])
+    terminals = new_terminals[ob_mask].astype(np.float32)
+
+    info = {k: v[ob_mask] for k, v in info_all.items()}
+    next_info = {k: v[next_ob_mask] for k, v in info_all.items()}
+
+    return dict(
+        observations=observations,
+        next_observations=next_observations,
+        actions=actions,
+        terminals=terminals,
+        info=info,
+        next_info=next_info,
+    )
+
+
+def load_dataset(
+    dataset_path,
+    ob_dtype=np.float32,
+    action_dtype=np.float32,
+    compact_dataset=False,
+    add_info=False,
+):
     """Load OGBench dataset.
 
     Args:
@@ -30,10 +89,10 @@ def load_dataset(dataset_path, ob_dtype=np.float32, action_dtype=np.float32, com
     file = np.load(dataset_path)
 
     dataset = dict()
-    for k in ['observations', 'actions', 'terminals']:
-        if k == 'observations':
+    for k in ["observations", "actions", "terminals"]:
+        if k == "observations":
             dtype = ob_dtype
-        elif k == 'actions':
+        elif k == "actions":
             dtype = action_dtype
         else:
             dtype = np.float32
@@ -42,7 +101,7 @@ def load_dataset(dataset_path, ob_dtype=np.float32, action_dtype=np.float32, com
     if add_info:
         # Read observation information.
         info_keys = []
-        for k in ['qpos', 'qvel', 'button_states']:
+        for k in ["qpos", "qvel", "button_states"]:
             if k in file:
                 dataset[k] = file[k][...]
                 info_keys.append(k)
@@ -68,9 +127,11 @@ def load_dataset(dataset_path, ob_dtype=np.float32, action_dtype=np.float32, com
         # 'terminals'   : [ 0,  0,  0,  1,  1,  0,  0,  0,  1,  1, ...]
         # 'valids'      : [ 1,  1,  1,  1,  0,  1,  1,  1,  1,  0, ...]
 
-        dataset['valids'] = 1.0 - dataset['terminals']
-        new_terminals = np.concatenate([dataset['terminals'][1:], [1.0]])
-        dataset['terminals'] = np.minimum(dataset['terminals'] + new_terminals, 1.0).astype(np.float32)
+        dataset["valids"] = 1.0 - dataset["terminals"]
+        new_terminals = np.concatenate([dataset["terminals"][1:], [1.0]])
+        dataset["terminals"] = np.minimum(
+            dataset["terminals"] + new_terminals, 1.0
+        ).astype(np.float32)
     else:
         # Regular dataset: Generate `next_observations` by shifting `observations`.
         # Our goal is to have the following structure:
@@ -81,13 +142,13 @@ def load_dataset(dataset_path, ob_dtype=np.float32, action_dtype=np.float32, com
         # 'next_observations': [s1, s2, s3, s4, s1, s2, s3, s4, ...]
         # 'terminals'        : [ 0,  0,  0,  1,  0,  0,  0,  1, ...]
 
-        ob_mask = (1.0 - dataset['terminals']).astype(bool)
+        ob_mask = (1.0 - dataset["terminals"]).astype(bool)
         next_ob_mask = np.concatenate([[False], ob_mask[:-1]])
-        dataset['next_observations'] = dataset['observations'][next_ob_mask]
-        dataset['observations'] = dataset['observations'][ob_mask]
-        dataset['actions'] = dataset['actions'][ob_mask]
-        new_terminals = np.concatenate([dataset['terminals'][1:], [1.0]])
-        dataset['terminals'] = new_terminals[ob_mask].astype(np.float32)
+        dataset["next_observations"] = dataset["observations"][next_ob_mask]
+        dataset["observations"] = dataset["observations"][ob_mask]
+        dataset["actions"] = dataset["actions"][ob_mask]
+        new_terminals = np.concatenate([dataset["terminals"][1:], [1.0]])
+        dataset["terminals"] = new_terminals[ob_mask].astype(np.float32)
 
         if add_info:
             for k in info_keys:
@@ -110,21 +171,21 @@ def download_datasets(dataset_names, dataset_dir=DEFAULT_DATASET_DIR):
     # Download datasets.
     dataset_file_names = []
     for dataset_name in dataset_names:
-        dataset_file_names.append(f'{dataset_name}.npz')
-        dataset_file_names.append(f'{dataset_name}-val.npz')
+        dataset_file_names.append(f"{dataset_name}.npz")
+        dataset_file_names.append(f"{dataset_name}-val.npz")
     for dataset_file_name in dataset_file_names:
         dataset_file_path = os.path.join(dataset_dir, dataset_file_name)
         if not os.path.exists(dataset_file_path):
-            dataset_url = f'{DATASET_URL}/{dataset_file_name}'
-            print('Downloading dataset from:', dataset_url)
+            dataset_url = f"{DATASET_URL}/{dataset_file_name}"
+            print("Downloading dataset from:", dataset_url)
             response = urllib.request.urlopen(dataset_url)
-            tmp_dataset_file_path = f'{dataset_file_path}.tmp'
+            tmp_dataset_file_path = f"{dataset_file_path}.tmp"
             with tqdm.wrapattr(
-                open(tmp_dataset_file_path, 'wb'),
-                'write',
+                open(tmp_dataset_file_path, "wb"),
+                "write",
                 miniters=1,
-                desc=dataset_url.split('/')[-1],
-                total=getattr(response, 'length', None),
+                desc=dataset_url.split("/")[-1],
+                total=getattr(response, "length", None),
             ) as file:
                 for chunk in response:
                     file.write(chunk)
@@ -157,27 +218,35 @@ def make_env_and_datasets(
         **env_kwargs: Keyword arguments to pass to the environment.
     """
     # Make environment.
-    splits = dataset_name.split('-')
+    splits = dataset_name.split("-")
     dataset_add_info = add_info
     env = cur_env
-    if 'singletask' in splits:
+    if "singletask" in splits:
         # Single-task environment.
-        pos = splits.index('singletask')
-        env_name = '-'.join(splits[: pos - 1] + splits[pos:])  # Remove the dataset type.
+        pos = splits.index("singletask")
+        env_name = "-".join(
+            splits[: pos - 1] + splits[pos:]
+        )  # Remove the dataset type.
         if not dataset_only:
             env = gymnasium.make(env_name, **env_kwargs)
-        dataset_name = '-'.join(splits[:pos] + splits[-1:])  # Remove the words 'singletask' and 'task\d' (if exists).
+        dataset_name = "-".join(
+            splits[:pos] + splits[-1:]
+        )  # Remove the words 'singletask' and 'task\d' (if exists).
         dataset_add_info = True
-    elif 'oraclerep' in splits:
+    elif "oraclerep" in splits:
         # Environment with oracle goal representations.
-        env_name = '-'.join(splits[:-3] + splits[-1:])  # Remove the dataset type and the word 'oraclerep'.
+        env_name = "-".join(
+            splits[:-3] + splits[-1:]
+        )  # Remove the dataset type and the word 'oraclerep'.
         if not dataset_only:
             env = gymnasium.make(env_name, use_oracle_rep=True, **env_kwargs)
-        dataset_name = '-'.join(splits[:-2] + splits[-1:])  # Remove the word 'oraclerep'.
+        dataset_name = "-".join(
+            splits[:-2] + splits[-1:]
+        )  # Remove the word 'oraclerep'.
         dataset_add_info = True
     else:
         # Original, goal-conditioned environment.
-        env_name = '-'.join(splits[:-2] + splits[-1:])  # Remove the dataset type.
+        env_name = "-".join(splits[:-2] + splits[-1:])  # Remove the dataset type.
         if not dataset_only:
             env = gymnasium.make(env_name, **env_kwargs)
 
@@ -188,14 +257,16 @@ def make_env_and_datasets(
     if dataset_path is None:
         dataset_dir = os.path.expanduser(dataset_dir)
         download_datasets([dataset_name], dataset_dir)
-        train_dataset_path = os.path.join(dataset_dir, f'{dataset_name}.npz')
-        val_dataset_path = os.path.join(dataset_dir, f'{dataset_name}-val.npz')
+        train_dataset_path = os.path.join(dataset_dir, f"{dataset_name}.npz")
+        val_dataset_path = os.path.join(dataset_dir, f"{dataset_name}-val.npz")
     else:
         train_dataset_path = dataset_path
-        val_dataset_path = dataset_path.replace('.npz', '-val.npz')
+        val_dataset_path = dataset_path.replace(".npz", "-val.npz")
 
-    ob_dtype = np.uint8 if ('visual' in env_name or 'powderworld' in env_name) else np.float32
-    action_dtype = np.int32 if 'powderworld' in env_name else np.float32
+    ob_dtype = (
+        np.uint8 if ("visual" in env_name or "powderworld" in env_name) else np.float32
+    )
+    action_dtype = np.int32 if "powderworld" in env_name else np.float32
     train_dataset = load_dataset(
         train_dataset_path,
         ob_dtype=ob_dtype,
@@ -211,19 +282,19 @@ def make_env_and_datasets(
         add_info=dataset_add_info,
     )
 
-    if 'singletask' in splits:
+    if "singletask" in splits:
         # Add reward information to the datasets.
         relabel_dataset(env_name, env, train_dataset)
         relabel_dataset(env_name, env, val_dataset)
 
-    if 'oraclerep' in splits:
+    if "oraclerep" in splits:
         # Add oracle goal representations to the datasets.
         add_oracle_reps(env_name, env, train_dataset)
         add_oracle_reps(env_name, env, val_dataset)
 
     if not add_info:
         # Remove information keys.
-        for k in ['qpos', 'qvel', 'button_states']:
+        for k in ["qpos", "qvel", "button_states"]:
             if k in train_dataset:
                 del train_dataset[k]
             if k in val_dataset:

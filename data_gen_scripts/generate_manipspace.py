@@ -200,11 +200,22 @@ def main(_):
                     agent = agents[agent_info["privileged/target_task"]]
                     agent.reset(agent_ob, agent_info)
 
-                episode_buffer["observations"].append(ob)
+                if isinstance(ob, dict):
+                    for ob_key, ob_val in ob.items():
+                        episode_buffer[f"observations/{ob_key}"].append(ob_val)
+                else:
+                    episode_buffer["observations"].append(ob)
                 episode_buffer["actions"].append(action)
                 episode_buffer["terminals"].append(done)
-                episode_buffer["qpos"].append(info["prev_qpos"])
-                episode_buffer["qvel"].append(info["prev_qvel"])
+
+                for k, v in info.items():
+                    if isinstance(v, np.ndarray):
+                        episode_buffer[f"info/{k}"].append(v)
+                    elif np.isscalar(v) and not isinstance(v, (str, bytes)):
+                        episode_buffer[f"info/{k}"].append(
+                            np.array([v], dtype=np.float32)
+                        )
+
                 if has_button_states:
                     episode_buffer["button_states"].append(info["prev_button_states"])
                 ep_qpos.append(info["prev_qpos"])

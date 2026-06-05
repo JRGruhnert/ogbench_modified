@@ -1,3 +1,10 @@
+### Why Fork?
+- Added standard depth image support for image observation
+- Added image resolution option for demo recording
+
+
+
+
 <div align="center">
 <img src="assets/ogbench.svg" width="300px"/>
 

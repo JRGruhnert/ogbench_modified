@@ -332,15 +332,13 @@ class SceneEnv(ManipSpaceEnv):
                 self.step(self.action_space.sample())
 
             # Save the goal observation.
-            print("Computing goal observation...")
-            print("is oracle?", self._use_oracle_rep)
             self._cur_goal_ob = (
                 self.compute_oracle_observation()
                 if self._use_oracle_rep
                 else self.compute_ob_info()
             )
             if self._render_goal:
-                self._cur_goal_rendered = self.compute_observation()
+                self._cur_goal_rendered = self.get_pixel_observation()
             else:
                 self._cur_goal_rendered = None
 

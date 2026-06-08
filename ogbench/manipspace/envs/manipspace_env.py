@@ -178,6 +178,13 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             dtype=np.float32,
         )
 
+    def _ee_state(self) -> str:
+        opening = self._data.qpos[self._gripper_opening_joint_id] / 0.8
+        if opening < 0.8:  # assuming it is closed if the opening is less than 0.8
+            return "closed"
+        else:
+            return "open"
+
     def normalize_action(self, action):
         """Normalize the action to the range [-1, 1]."""
         action = (
@@ -508,6 +515,13 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
                 ).compute_yaw_radians()
             ]
         )
+        ob_info["proprio/effector_quat"] = np.array(
+            [
+                lie.SO3.from_matrix(
+                    self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
+                ).wxyz
+            ]
+        )
         ob_info["proprio/gripper_opening"] = np.array(
             np.clip([self._data.qpos[self._gripper_opening_joint_id] / 0.8], 0, 1)
         )
@@ -524,6 +538,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
                 )
             ]
         )
+        ob_info["proprio/gripper_state"] = self._ee_state()
 
         self.add_object_info(ob_info)
 

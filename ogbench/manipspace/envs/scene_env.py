@@ -230,7 +230,9 @@ class SceneEnv(ManipSpaceEnv):
         if self._cur_button_states[0] == 0:
             # Set the damping to a high value to lock the drawer.
             self._model.joint("drawer_slide").damping[0] = 1e6
-            self._model.material("drawer_handle").rgba = self._colors["red"]
+            self._model.material("drawer_handle").rgba = self._colors[
+                "white"
+            ]  # self._colors["red"]
         else:
             # Unset the damping to unlock the drawer.
             self._model.joint("drawer_slide").damping[0] = 2.0
@@ -238,7 +240,9 @@ class SceneEnv(ManipSpaceEnv):
         if self._cur_button_states[1] == 0:
             # Set the damping to a high value to lock the window.
             self._model.joint("window_slide").damping[0] = 1e6
-            self._model.material("window_handle").rgba = self._colors["red"]
+            self._model.material("window_handle").rgba = self._colors[
+                "white"
+            ]  # self._colors["red"]
         else:
             # Unset the damping to unlock the window.
             self._model.joint("window_slide").damping[0] = 2.0
@@ -390,6 +394,19 @@ class SceneEnv(ManipSpaceEnv):
         drawer_high = np.array([0.45, drawer_pos_y - 0.07, 0.15])
         return np.all(drawer_low <= obj_pos) and np.all(obj_pos <= drawer_high)
 
+    def _is_grabbed(self, obj_pos):
+        """Check if the object is grabbed by the robot."""
+        effector_pos = self._data.site_xpos[self._pinch_site_id]
+        close = np.linalg.norm(obj_pos - effector_pos) < 0.04
+        if self._is_in_drawer(obj_pos):
+            # If the object is in the drawer, we check if it's close to the effector and above the drawer bottom to
+            # determine if it's grabbed. This is because when the drawer is open, the robot can only grab the object
+            # when it's lifted up from the drawer.
+            in_air = obj_pos[2] > self._drawer_center[2] + 0.01
+        else:
+            in_air = obj_pos[2] > 0.01
+        return close and in_air
+
     def set_new_target(self, return_info=True, p_stack=0.5):
         """Set a new random target for data collection.
 
@@ -504,7 +521,7 @@ class SceneEnv(ManipSpaceEnv):
             ) % self._num_button_states
         elif self._target_task == "drawer":
             # Set target drawer position.
-            if self._data.joint("drawer_slide").qpos[0] >= -0.08:  # Drawer closed.
+            if self._is_drawer_closed():  # Drawer closed.
                 self._target_drawer_pos = -0.16
             else:  # Drawer open.
                 self._target_drawer_pos = 0.0
@@ -513,7 +530,7 @@ class SceneEnv(ManipSpaceEnv):
             ] = self._target_drawer_pos
         elif self._target_task == "window":
             # Set target window position.
-            if self._data.joint("window_slide").qpos[0] <= 0.1:  # Window closed.
+            if self._is_window_closed():  # Window closed.
                 self._target_window_pos = 0.2
             else:  # Window open.
                 self._target_window_pos = 0.0
@@ -525,6 +542,41 @@ class SceneEnv(ManipSpaceEnv):
 
         if return_info:
             return self.compute_observation(), self.get_reset_info()
+
+    def _is_drawer_closed(self):
+        return self._data.joint("drawer_slide").qpos[0] >= -0.08
+
+    def _is_window_closed(self):
+        return self._data.joint("window_slide").qpos[0] <= 0.1
+
+    def _drawer_state(self) -> str:
+        if self._is_drawer_closed():
+            return "closed"
+        else:
+            return "open"
+
+    def _window_state(self) -> str:
+        if self._is_window_closed():
+            return "closed"
+        else:
+            return "open"
+
+    def _button_state(self, button_idx: int) -> str:
+        if self._cur_button_states[button_idx] == 0:
+            return "free"
+        else:
+            return "locked"
+
+    def _block_state(self, block_idx: int) -> str:
+        if self._is_in_drawer(self._data.joint(f"object_joint_{block_idx}").qpos[:3]):
+            return "drawer"
+        elif self._is_grabbed(self._data.joint(f"object_joint_{block_idx}").qpos[:3]):
+            return "grabbed"
+        else:
+            return "floor"
+
+    def default_quaternion(self) -> np.ndarray:
+        return np.array(lie.SO3.identity().wxyz.tolist())
 
     def pre_step(self):
         self._prev_button_states = self._cur_button_states.copy()
@@ -652,19 +704,22 @@ class SceneEnv(ManipSpaceEnv):
                     ).compute_yaw_radians()
                 ]
             )
+            ob_info[f"privileged/block_{i}_state"] = self._block_state(i)
 
         # Button states.
         for i in range(self._num_buttons):
-            ob_info[f"privileged/button_{i}_state"] = self._cur_button_states[i]
+            ob_info[f"privileged/button_{i}_state"] = self._button_state(i)
             ob_info[f"privileged/button_{i}_pos"] = self._data.joint(
                 f"buttonbox_joint_{i}"
             ).qpos.copy()
             ob_info[f"privileged/button_{i}_vel"] = self._data.joint(
                 f"buttonbox_joint_{i}"
             ).qvel.copy()
+            ob_info[f"privileged/button_{i}_quat"] = self.default_quaternion()
 
         # Drawer states.
         ob_info["privileged/drawer_pos"] = self._data.joint("drawer_slide").qpos.copy()
+        ob_info["privileged/drawer_state"] = self._drawer_state()
         ob_info["privileged/drawer_vel"] = self._data.joint("drawer_slide").qvel.copy()
         ob_info["privileged/drawer_handle_pos"] = self._data.site_xpos[
             self._drawer_site_id
@@ -676,9 +731,17 @@ class SceneEnv(ManipSpaceEnv):
                 ).compute_yaw_radians()
             ]
         )
+        ob_info["privileged/drawer_handle_quat"] = np.array(
+            [
+                lie.SO3.from_matrix(
+                    self._data.site_xmat[self._drawer_site_id].reshape(3, 3)
+                ).wxyz.copy()
+            ]
+        )
 
         # Window states.
         ob_info["privileged/window_pos"] = self._data.joint("window_slide").qpos.copy()
+        ob_info["privileged/window_state"] = self._window_state()
         ob_info["privileged/window_vel"] = self._data.joint("window_slide").qvel.copy()
         ob_info["privileged/window_handle_pos"] = self._data.site_xpos[
             self._window_site_id
@@ -688,6 +751,13 @@ class SceneEnv(ManipSpaceEnv):
                 lie.SO3.from_matrix(
                     self._data.site_xmat[self._window_site_id].reshape(3, 3)
                 ).compute_yaw_radians()
+            ]
+        )
+        ob_info["privileged/window_handle_quat"] = np.array(
+            [
+                lie.SO3.from_matrix(
+                    self._data.site_xmat[self._window_site_id].reshape(3, 3)
+                ).wxyz.copy()
             ]
         )
 
@@ -707,6 +777,9 @@ class SceneEnv(ManipSpaceEnv):
                     ).compute_yaw_radians()
                 ]
             )
+            ob_info["privileged/target_block_quat"] = self._data.mocap_quat[
+                target_mocap_id
+            ].copy()
 
             # Target button info.
             ob_info["privileged/target_button"] = self._target_button
@@ -716,6 +789,7 @@ class SceneEnv(ManipSpaceEnv):
             ob_info["privileged/target_button_top_pos"] = self._data.site_xpos[
                 self._button_site_ids[self._target_button]
             ].copy()
+            ob_info["privileged/target_button_quat"] = self.default_quaternion()
 
             # Target drawer info.
             ob_info["privileged/target_drawer_pos"] = np.array(

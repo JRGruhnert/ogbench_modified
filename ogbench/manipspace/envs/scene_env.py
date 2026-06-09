@@ -732,11 +732,9 @@ class SceneEnv(ManipSpaceEnv):
             ]
         )
         ob_info["privileged/drawer_handle_quat"] = np.array(
-            [
-                lie.SO3.from_matrix(
-                    self._data.site_xmat[self._drawer_site_id].reshape(3, 3)
-                ).wxyz.copy()
-            ]
+            lie.SO3.from_matrix(
+                self._data.site_xmat[self._drawer_site_id].reshape(3, 3)
+            ).wxyz.copy()
         )
 
         # Window states.
@@ -754,11 +752,9 @@ class SceneEnv(ManipSpaceEnv):
             ]
         )
         ob_info["privileged/window_handle_quat"] = np.array(
-            [
-                lie.SO3.from_matrix(
-                    self._data.site_xmat[self._window_site_id].reshape(3, 3)
-                ).wxyz.copy()
-            ]
+            lie.SO3.from_matrix(
+                self._data.site_xmat[self._window_site_id].reshape(3, 3)
+            ).wxyz.copy()
         )
 
         if self._mode == "data_collection":

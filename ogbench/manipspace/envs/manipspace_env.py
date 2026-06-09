@@ -155,8 +155,17 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
                     "depth": Box(
                         low=0.0,
                         high=np.inf,
-                        shape=(self._render_height, self._render_width),
+                        shape=(
+                            self._render_height,
+                            self._render_width,
+                        ),
                         dtype=np.float32,
+                    ),
+                    "mask": Box(
+                        low=0,
+                        high=255,
+                        shape=(self._render_height, self._render_width, 2),
+                        dtype=np.int32,
                     ),
                     "intrinsics": Box(
                         low=-np.inf, high=np.inf, shape=(3, 3), dtype=np.float32
@@ -516,11 +525,9 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             ]
         )
         ob_info["proprio/effector_quat"] = np.array(
-            [
-                lie.SO3.from_matrix(
-                    self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
-                ).wxyz
-            ]
+            lie.SO3.from_matrix(
+                self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
+            ).wxyz
         )
         ob_info["proprio/gripper_opening"] = np.array(
             np.clip([self._data.qpos[self._gripper_opening_joint_id] / 0.8], 0, 1)
@@ -557,10 +564,15 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
     def get_pixel_observation(self):
         rgb = self.render()
         depth = self.render(depth=True)
+        segmentation = self.render(segmentation=True)
         intrinsics = self.get_camera_intrinsics()
         extrinsics = self.get_camera_extrinsics()
         ob: dict = dict(
-            rgb=rgb, depth=depth, intrinsics=intrinsics, extrinsics=extrinsics
+            rgb=rgb,
+            depth=depth,
+            mask=segmentation,
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
         )
         return ob
 

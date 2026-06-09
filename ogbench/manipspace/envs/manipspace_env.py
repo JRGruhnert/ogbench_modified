@@ -512,30 +512,30 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         ob_info = {}
 
         # Proprioceptive observations
-        ob_info["proprio/joint_pos"] = self._data.qpos[self._arm_joint_ids].copy()
-        ob_info["proprio/joint_vel"] = self._data.qvel[self._arm_joint_ids].copy()
-        ob_info["proprio/effector_pos"] = self._data.site_xpos[
+        ob_info["proprio_joint_pos"] = self._data.qpos[self._arm_joint_ids].copy()
+        ob_info["proprio_joint_vel"] = self._data.qvel[self._arm_joint_ids].copy()
+        ob_info["proprio_effector_pos"] = self._data.site_xpos[
             self._pinch_site_id
         ].copy()
-        ob_info["proprio/effector_yaw"] = np.array(
+        ob_info["proprio_effector_yaw"] = np.array(
             [
                 lie.SO3.from_matrix(
                     self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
                 ).compute_yaw_radians()
             ]
         )
-        ob_info["proprio/effector_quat"] = np.array(
+        ob_info["proprio_effector_quat"] = np.array(
             lie.SO3.from_matrix(
                 self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
             ).wxyz
         )
-        ob_info["proprio/gripper_opening"] = np.array(
+        ob_info["proprio_gripper_opening"] = np.array(
             np.clip([self._data.qpos[self._gripper_opening_joint_id] / 0.8], 0, 1)
         )
-        ob_info["proprio/gripper_vel"] = self._data.qvel[
+        ob_info["proprio_gripper_vel"] = self._data.qvel[
             [self._gripper_opening_joint_id]
         ].copy()
-        ob_info["proprio/gripper_contact"] = np.array(
+        ob_info["proprio_gripper_contact"] = np.array(
             [
                 np.clip(
                     np.linalg.norm(self._data.body("ur5e/robotiq/right_pad").cfrc_ext)
@@ -545,7 +545,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
                 )
             ]
         )
-        ob_info["proprio/gripper_state"] = self._ee_state()
+        ob_info["proprio_gripper_state"] = self._ee_state()
 
         self.add_object_info(ob_info)
 
@@ -645,13 +645,13 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
             ob_info = self.compute_ob_info()
             ob = [
-                ob_info["proprio/joint_pos"],
-                ob_info["proprio/joint_vel"],
-                (ob_info["proprio/effector_pos"] - xyz_center) * xyz_scaler,
-                np.cos(ob_info["proprio/effector_yaw"]),
-                np.sin(ob_info["proprio/effector_yaw"]),
-                ob_info["proprio/gripper_opening"] * gripper_scaler,
-                ob_info["proprio/gripper_contact"],
+                ob_info["proprio_joint_pos"],
+                ob_info["proprio_joint_vel"],
+                (ob_info["proprio_effector_pos"] - xyz_center) * xyz_scaler,
+                np.cos(ob_info["proprio_effector_yaw"]),
+                np.sin(ob_info["proprio_effector_yaw"]),
+                ob_info["proprio_gripper_opening"] * gripper_scaler,
+                ob_info["proprio_gripper_contact"],
             ]
 
             return np.concatenate(ob)

@@ -17,20 +17,27 @@ class WindowMarkovOracle(MarkovOracle):
         self._final_yaw = np.random.uniform(-np.pi, np.pi)
 
     def select_action(self, ob, info):
-        effector_pos = info['proprio/effector_pos']
-        effector_yaw = info['proprio/effector_yaw'][0]
-        gripper_opening = info['proprio/gripper_opening']
+        effector_pos = info["proprio_effector_pos"]
+        effector_yaw = info["proprio_effector_yaw"][0]
+        gripper_opening = info["proprio_gripper_opening"]
 
-        window_pos = info['privileged/window_handle_pos']
-        window_yaw = self.shortest_yaw(effector_yaw, info['privileged/window_handle_yaw'][0], n=2)
-        target_pos = info['privileged/target_window_handle_pos']
+        window_pos = info["privileged_window_handle_pos"]
+        window_yaw = self.shortest_yaw(
+            effector_yaw, info["privileged_window_handle_yaw"][0], n=2
+        )
+        target_pos = info["privileged_target_window_handle_pos"]
 
         window_above_offset = np.array([0, 0, 0.06])
         window_handle_offset = np.array([0, 0, 0])
         above_threshold = 0.28
         above = effector_pos[2] > above_threshold
-        xy_aligned = np.linalg.norm(window_pos[:2] + window_handle_offset[:2] - effector_pos[:2]) <= 0.04
-        pos_aligned = np.linalg.norm(window_pos + window_handle_offset - effector_pos) <= 0.03
+        xy_aligned = (
+            np.linalg.norm(window_pos[:2] + window_handle_offset[:2] - effector_pos[:2])
+            <= 0.04
+        )
+        pos_aligned = (
+            np.linalg.norm(window_pos + window_handle_offset - effector_pos) <= 0.03
+        )
         target_pos_aligned = np.linalg.norm(target_pos - window_pos) <= 0.01
         final_pos_aligned = np.linalg.norm(self._final_pos - effector_pos) <= 0.04
 
@@ -39,22 +46,27 @@ class WindowMarkovOracle(MarkovOracle):
         action = np.zeros(5)
         if not target_pos_aligned:
             if not xy_aligned:
-                self.print_phase('1: Move above the window handle')
+                self.print_phase("1: Move above the window handle")
                 action = np.zeros(5)
-                diff = window_pos + window_handle_offset + window_above_offset - effector_pos
+                diff = (
+                    window_pos
+                    + window_handle_offset
+                    + window_above_offset
+                    - effector_pos
+                )
                 diff = self.shape_diff(diff)
                 action[:3] = diff[:3] * gain_pos
                 action[3] = (window_yaw - effector_yaw) * gain_yaw
                 action[4] = -1
             elif not pos_aligned:
-                self.print_phase('2: Move to the window handle')
+                self.print_phase("2: Move to the window handle")
                 diff = window_pos + window_handle_offset - effector_pos
                 diff = self.shape_diff(diff)
                 action[:3] = diff[:3] * gain_pos
                 action[3] = (window_yaw - effector_yaw) * gain_yaw
                 action[4] = -1
             else:
-                self.print_phase('3: Move to the target')
+                self.print_phase("3: Move to the target")
                 diff = target_pos + window_handle_offset - effector_pos
                 diff = self.shape_diff(diff)
                 action[:3] = diff[:3] * gain_pos
@@ -62,7 +74,7 @@ class WindowMarkovOracle(MarkovOracle):
                 action[4] = 1
         else:
             if not above:
-                self.print_phase('4: Move in the air')
+                self.print_phase("4: Move in the air")
                 diff = (
                     np.array(
                         [
@@ -78,7 +90,7 @@ class WindowMarkovOracle(MarkovOracle):
                 action[3] = (self._final_yaw - effector_yaw) * gain_yaw
                 action[4] = -1
             else:
-                self.print_phase('5: Move to the final position')
+                self.print_phase("5: Move to the final position")
                 diff = self._final_pos - effector_pos
                 diff = self.shape_diff(diff)
                 action[:3] = diff[:3] * gain_pos

@@ -64,17 +64,19 @@ class PlanOracle:
 
     def compute_plan(self, times, poses, grasps):
         # Interpolate grasps.
-        grasp_interp = interp1d(times, grasps, kind='linear', axis=0, assume_sorted=True)
+        grasp_interp = interp1d(
+            times, grasps, kind="linear", axis=0, assume_sorted=True
+        )
 
         # Interpolate poses.
         xyzs = [p.translation() for p in poses]
-        xyz_interp = interp1d(times, xyzs, kind='linear', axis=0, assume_sorted=True)
+        xyz_interp = interp1d(times, xyzs, kind="linear", axis=0, assume_sorted=True)
 
         # Interpolate orientations.
         quats = [p.rotation() for p in poses]
 
         def quat_interp(t):
-            s = np.searchsorted(times, t, side='right') - 1
+            s = np.searchsorted(times, t, side="right") - 1
             interp_time = (t - times[s]) / (times[s + 1] - times[s])
             interp_time = np.clip(interp_time, 0.0, 1.0)
             return lie.interpolate(quats[s], quats[s + 1], interp_time)
@@ -94,7 +96,11 @@ class PlanOracle:
 
         # Add temporally correlated noise to the plan.
         if self._noise > 0:
-            noise = np.random.normal(0, 1, size=(len(plan), 5)) * np.array([0.05, 0.05, 0.05, 0.3, 1.0]) * self._noise
+            noise = (
+                np.random.normal(0, 1, size=(len(plan), 5))
+                * np.array([0.05, 0.05, 0.05, 0.3, 1.0])
+                * self._noise
+            )
             noise = gaussian_filter1d(noise, axis=0, sigma=self._noise_smoothing)
             plan += noise
 
@@ -109,7 +115,7 @@ class PlanOracle:
 
     def select_action(self, ob, info):
         # Find the current plan index.
-        cur_plan_idx = int((info['time'][0] - self._t_init + 1e-7) // self._env_dt)
+        cur_plan_idx = int((info["time"][0] - self._t_init + 1e-7) // self._env_dt)
         if cur_plan_idx >= len(self._plan) - 1:
             cur_plan_idx = len(self._plan) - 1
             self._done = True
@@ -117,9 +123,9 @@ class PlanOracle:
         # Compute the difference between the current state and the current plan.
         ab_action = self._plan[cur_plan_idx]
         action = np.zeros(5)
-        action[:3] = ab_action[:3] - info['proprio/effector_pos']
-        action[3] = ab_action[3] - info['proprio/effector_yaw'][0]
-        action[4] = ab_action[4] - info['proprio/gripper_opening'][0]
+        action[:3] = ab_action[:3] - info["proprio_effector_pos"]
+        action[3] = ab_action[3] - info["proprio_effector_yaw"][0]
+        action[4] = ab_action[4] - info["proprio_gripper_opening"][0]
         action = self._env.unwrapped.normalize_action(action)
 
         return action

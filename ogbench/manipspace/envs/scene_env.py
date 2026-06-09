@@ -642,7 +642,7 @@ class SceneEnv(ManipSpaceEnv):
 
         # Update button states.
         for i in range(self._num_buttons):
-            prev_joint_pos = self._prev_ob_info[f"privileged/button_{i}_pos"][0]
+            prev_joint_pos = self._prev_ob_info[f"privileged_button_{i}_pos"][0]
             cur_joint_pos = self._data.joint(f"buttonbox_joint_{i}").qpos.copy()[0]
             if prev_joint_pos > -0.02 and cur_joint_pos <= -0.02:
                 # Button pressed: change the state of the button.
@@ -691,115 +691,115 @@ class SceneEnv(ManipSpaceEnv):
     def add_object_info(self, ob_info):
         # Cube positions and orientations.
         for i in range(self._num_cubes):
-            ob_info[f"privileged/block_{i}_pos"] = (
+            ob_info[f"privileged_block_{i}_pos"] = (
                 self._data.joint(f"object_joint_{i}").qpos[:3].copy()
             )
-            ob_info[f"privileged/block_{i}_quat"] = (
+            ob_info[f"privileged_block_{i}_quat"] = (
                 self._data.joint(f"object_joint_{i}").qpos[3:].copy()
             )
-            ob_info[f"privileged/block_{i}_yaw"] = np.array(
+            ob_info[f"privileged_block_{i}_yaw"] = np.array(
                 [
                     lie.SO3(
                         wxyz=self._data.joint(f"object_joint_{i}").qpos[3:]
                     ).compute_yaw_radians()
                 ]
             )
-            ob_info[f"privileged/block_{i}_state"] = self._block_state(i)
+            ob_info[f"privileged_block_{i}_state"] = self._block_state(i)
 
         # Button states.
         for i in range(self._num_buttons):
-            ob_info[f"privileged/button_{i}_state"] = self._button_state(i)
-            ob_info[f"privileged/button_{i}_pos"] = self._data.joint(
+            ob_info[f"privileged_button_{i}_state"] = self._button_state(i)
+            ob_info[f"privileged_button_{i}_pos"] = self._data.joint(
                 f"buttonbox_joint_{i}"
             ).qpos.copy()
-            ob_info[f"privileged/button_{i}_vel"] = self._data.joint(
+            ob_info[f"privileged_button_{i}_vel"] = self._data.joint(
                 f"buttonbox_joint_{i}"
             ).qvel.copy()
-            ob_info[f"privileged/button_{i}_quat"] = self.default_quaternion()
+            ob_info[f"privileged_button_{i}_quat"] = self.default_quaternion()
 
         # Drawer states.
-        ob_info["privileged/drawer_pos"] = self._data.joint("drawer_slide").qpos.copy()
-        ob_info["privileged/drawer_state"] = self._drawer_state()
-        ob_info["privileged/drawer_vel"] = self._data.joint("drawer_slide").qvel.copy()
-        ob_info["privileged/drawer_handle_pos"] = self._data.site_xpos[
+        ob_info["privileged_drawer_pos"] = self._data.joint("drawer_slide").qpos.copy()
+        ob_info["privileged_drawer_state"] = self._drawer_state()
+        ob_info["privileged_drawer_vel"] = self._data.joint("drawer_slide").qvel.copy()
+        ob_info["privileged_drawer_handle_pos"] = self._data.site_xpos[
             self._drawer_site_id
         ].copy()
-        ob_info["privileged/drawer_handle_yaw"] = np.array(
+        ob_info["privileged_drawer_handle_yaw"] = np.array(
             [
                 lie.SO3.from_matrix(
                     self._data.site_xmat[self._drawer_site_id].reshape(3, 3)
                 ).compute_yaw_radians()
             ]
         )
-        ob_info["privileged/drawer_handle_quat"] = np.array(
+        ob_info["privileged_drawer_handle_quat"] = np.array(
             lie.SO3.from_matrix(
                 self._data.site_xmat[self._drawer_site_id].reshape(3, 3)
             ).wxyz.copy()
         )
 
         # Window states.
-        ob_info["privileged/window_pos"] = self._data.joint("window_slide").qpos.copy()
-        ob_info["privileged/window_state"] = self._window_state()
-        ob_info["privileged/window_vel"] = self._data.joint("window_slide").qvel.copy()
-        ob_info["privileged/window_handle_pos"] = self._data.site_xpos[
+        ob_info["privileged_window_pos"] = self._data.joint("window_slide").qpos.copy()
+        ob_info["privileged_window_state"] = self._window_state()
+        ob_info["privileged_window_vel"] = self._data.joint("window_slide").qvel.copy()
+        ob_info["privileged_window_handle_pos"] = self._data.site_xpos[
             self._window_site_id
         ].copy()
-        ob_info["privileged/window_handle_yaw"] = np.array(
+        ob_info["privileged_window_handle_yaw"] = np.array(
             [
                 lie.SO3.from_matrix(
                     self._data.site_xmat[self._window_site_id].reshape(3, 3)
                 ).compute_yaw_radians()
             ]
         )
-        ob_info["privileged/window_handle_quat"] = np.array(
+        ob_info["privileged_window_handle_quat"] = np.array(
             lie.SO3.from_matrix(
                 self._data.site_xmat[self._window_site_id].reshape(3, 3)
             ).wxyz.copy()
         )
 
         if self._mode == "data_collection":
-            ob_info["privileged/target_task"] = self._target_task
+            ob_info["privileged_target_task"] = self._target_task
 
             # Target cube info.
             target_mocap_id = self._cube_target_mocap_ids[self._target_block]
-            ob_info["privileged/target_block"] = self._target_block
-            ob_info["privileged/target_block_pos"] = self._data.mocap_pos[
+            ob_info["privileged_target_block"] = self._target_block
+            ob_info["privileged_target_block_pos"] = self._data.mocap_pos[
                 target_mocap_id
             ].copy()
-            ob_info["privileged/target_block_yaw"] = np.array(
+            ob_info["privileged_target_block_yaw"] = np.array(
                 [
                     lie.SO3(
                         wxyz=self._data.mocap_quat[target_mocap_id]
                     ).compute_yaw_radians()
                 ]
             )
-            ob_info["privileged/target_block_quat"] = self._data.mocap_quat[
+            ob_info["privileged_target_block_quat"] = self._data.mocap_quat[
                 target_mocap_id
             ].copy()
 
             # Target button info.
-            ob_info["privileged/target_button"] = self._target_button
-            ob_info["privileged/target_button_state"] = self._target_button_states[
+            ob_info["privileged_target_button"] = self._target_button
+            ob_info["privileged_target_button_state"] = self._target_button_states[
                 self._target_button
             ]
-            ob_info["privileged/target_button_top_pos"] = self._data.site_xpos[
+            ob_info["privileged_target_button_top_pos"] = self._data.site_xpos[
                 self._button_site_ids[self._target_button]
             ].copy()
-            ob_info["privileged/target_button_quat"] = self.default_quaternion()
+            ob_info["privileged_target_button_quat"] = self.default_quaternion()
 
             # Target drawer info.
-            ob_info["privileged/target_drawer_pos"] = np.array(
+            ob_info["privileged_target_drawer_pos"] = np.array(
                 [self._target_drawer_pos]
             )
-            ob_info["privileged/target_drawer_handle_pos"] = self._data.site_xpos[
+            ob_info["privileged_target_drawer_handle_pos"] = self._data.site_xpos[
                 self._drawer_target_site_id
             ].copy()
 
             # Target window info.
-            ob_info["privileged/target_window_pos"] = np.array(
+            ob_info["privileged_target_window_pos"] = np.array(
                 [self._target_window_pos]
             )
-            ob_info["privileged/target_window_handle_pos"] = self._data.site_xpos[
+            ob_info["privileged_target_window_handle_pos"] = self._data.site_xpos[
                 self._window_target_site_id
             ].copy()
 
@@ -819,22 +819,22 @@ class SceneEnv(ManipSpaceEnv):
 
             ob_info = self.compute_ob_info()
             ob = [
-                ob_info["proprio/joint_pos"],
-                ob_info["proprio/joint_vel"],
-                (ob_info["proprio/effector_pos"] - xyz_center) * xyz_scaler,
-                np.cos(ob_info["proprio/effector_yaw"]),
-                np.sin(ob_info["proprio/effector_yaw"]),
-                ob_info["proprio/gripper_opening"] * gripper_scaler,
-                ob_info["proprio/gripper_contact"],
+                ob_info["proprio_joint_pos"],
+                ob_info["proprio_joint_vel"],
+                (ob_info["proprio_effector_pos"] - xyz_center) * xyz_scaler,
+                np.cos(ob_info["proprio_effector_yaw"]),
+                np.sin(ob_info["proprio_effector_yaw"]),
+                ob_info["proprio_gripper_opening"] * gripper_scaler,
+                ob_info["proprio_gripper_contact"],
             ]
             for i in range(self._num_cubes):
                 ob.extend(
                     [
-                        (ob_info[f"privileged/block_{i}_pos"] - xyz_center)
+                        (ob_info[f"privileged_block_{i}_pos"] - xyz_center)
                         * xyz_scaler,
-                        ob_info[f"privileged/block_{i}_quat"],
-                        np.cos(ob_info[f"privileged/block_{i}_yaw"]),
-                        np.sin(ob_info[f"privileged/block_{i}_yaw"]),
+                        ob_info[f"privileged_block_{i}_quat"],
+                        np.cos(ob_info[f"privileged_block_{i}_yaw"]),
+                        np.sin(ob_info[f"privileged_block_{i}_yaw"]),
                     ]
                 )
             for i in range(self._num_buttons):
@@ -844,16 +844,16 @@ class SceneEnv(ManipSpaceEnv):
                 ob.extend(
                     [
                         button_state,
-                        ob_info[f"privileged/button_{i}_pos"] * button_scaler,
-                        ob_info[f"privileged/button_{i}_vel"],
+                        ob_info[f"privileged_button_{i}_pos"] * button_scaler,
+                        ob_info[f"privileged_button_{i}_vel"],
                     ]
                 )
             ob.extend(
                 [
-                    ob_info["privileged/drawer_pos"] * drawer_scaler,
-                    ob_info["privileged/drawer_vel"],
-                    ob_info["privileged/window_pos"] * window_scaler,
-                    ob_info["privileged/window_vel"],
+                    ob_info["privileged_drawer_pos"] * drawer_scaler,
+                    ob_info["privileged_drawer_vel"],
+                    ob_info["privileged_window_pos"] * window_scaler,
+                    ob_info["privileged_window_vel"],
                 ]
             )
 
@@ -869,12 +869,12 @@ class SceneEnv(ManipSpaceEnv):
         ob_info = self.compute_ob_info()
         ob = []
         for i in range(self._num_cubes):
-            ob.append((ob_info[f"privileged/block_{i}_pos"] - xyz_center) * xyz_scaler)
+            ob.append((ob_info[f"privileged_block_{i}_pos"] - xyz_center) * xyz_scaler)
         ob.append(self._cur_button_states.astype(np.float64))
         ob.extend(
             [
-                ob_info["privileged/drawer_pos"] * drawer_scaler,
-                ob_info["privileged/window_pos"] * window_scaler,
+                ob_info["privileged_drawer_pos"] * drawer_scaler,
+                ob_info["privileged_window_pos"] * window_scaler,
             ]
         )
 

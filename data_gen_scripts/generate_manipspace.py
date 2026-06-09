@@ -171,7 +171,7 @@ def main(_):
                 # Set the action noise level for this episode.
                 xi = np.random.uniform(0, FLAGS.noise)
 
-            agent = agents[info["privileged/target_task"]]
+            agent = agents[info["privileged_target_task"]]
             agent.reset(ob, info)
 
             done = False
@@ -198,7 +198,7 @@ def main(_):
                 if agent.done:
                     # Set a new task when the current task is done.
                     agent_ob, agent_info = env.unwrapped.set_new_target(p_stack=p_stack)
-                    agent = agents[agent_info["privileged/target_task"]]
+                    agent = agents[agent_info["privileged_target_task"]]
                     agent.reset(agent_ob, agent_info)
 
                 if isinstance(ob, dict):

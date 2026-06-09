@@ -134,6 +134,7 @@ def main(_):
             arr = np.array(rows)
             if k not in datasets:
                 maxshape = (None,) + arr.shape[1:]
+                # print(k, arr.shape)
                 datasets[k] = file.create_dataset(
                     k, data=arr, maxshape=maxshape, chunks=(1,) + arr.shape[1:]
                 )
@@ -202,7 +203,7 @@ def main(_):
 
                 if isinstance(ob, dict):
                     for ob_key, ob_val in ob.items():
-                        episode_buffer[f"observations/{ob_key}"].append(ob_val)
+                        episode_buffer[ob_key].append(ob_val)
                 else:
                     episode_buffer["observations"].append(ob)
                 episode_buffer["actions"].append(action)
@@ -210,14 +211,10 @@ def main(_):
 
                 for k, v in info.items():
                     if isinstance(v, np.ndarray):
-                        episode_buffer[f"info/{k}"].append(v)
+                        episode_buffer[k].append(v)
                     elif np.isscalar(v) and not isinstance(v, (str, bytes)):
-                        episode_buffer[f"info/{k}"].append(
-                            np.array([v], dtype=np.float32)
-                        )
+                        episode_buffer[k].append(np.array([v], dtype=np.float32))
 
-                if has_button_states:
-                    episode_buffer["button_states"].append(info["prev_button_states"])
                 ep_qpos.append(info["prev_qpos"])
 
                 ob = next_ob

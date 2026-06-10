@@ -187,12 +187,12 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             dtype=np.float32,
         )
 
-    def _ee_state(self) -> str:
+    def _ee_state(self) -> int:
         opening = self._data.qpos[self._gripper_opening_joint_id] / 0.8
         if opening < 0.8:  # assuming it is closed if the opening is less than 0.8
-            return "closed"
+            return 1  # "closed"
         else:
-            return "open"
+            return 0  # "open"
 
     def normalize_action(self, action):
         """Normalize the action to the range [-1, 1]."""

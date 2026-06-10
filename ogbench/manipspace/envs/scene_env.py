@@ -549,31 +549,31 @@ class SceneEnv(ManipSpaceEnv):
     def _is_window_closed(self):
         return self._data.joint("window_slide").qpos[0] <= 0.1
 
-    def _drawer_state(self) -> str:
+    def _drawer_state(self) -> int:
         if self._is_drawer_closed():
-            return "closed"
+            return 1  # "closed"
         else:
-            return "open"
+            return 0  # "open"
 
-    def _window_state(self) -> str:
+    def _window_state(self) -> int:
         if self._is_window_closed():
-            return "closed"
+            return 1  # "closed"
         else:
-            return "open"
+            return 0  # "open"
 
-    def _button_state(self, button_idx: int) -> str:
+    def _button_state(self, button_idx: int) -> int:
         if self._cur_button_states[button_idx] == 0:
-            return "free"
+            return 0  # "free"
         else:
-            return "locked"
+            return 1  # "locked"
 
-    def _block_state(self, block_idx: int) -> str:
+    def _block_state(self, block_idx: int) -> int:
         if self._is_in_drawer(self._data.joint(f"object_joint_{block_idx}").qpos[:3]):
-            return "drawer"
-        elif self._is_grabbed(self._data.joint(f"object_joint_{block_idx}").qpos[:3]):
-            return "grabbed"
+            return 0  # "drawer"
+        # elif self._is_grabbed(self._data.joint(f"object_joint_{block_idx}").qpos[:3]):
+        #    return "grabbed"
         else:
-            return "floor"
+            return 1  # "floor"
 
     def default_quaternion(self) -> np.ndarray:
         return np.array(lie.SO3.identity().wxyz.tolist())
@@ -709,9 +709,11 @@ class SceneEnv(ManipSpaceEnv):
         # Button states.
         for i in range(self._num_buttons):
             ob_info[f"privileged_button_{i}_state"] = self._button_state(i)
-            ob_info[f"privileged_button_{i}_pos"] = self._data.joint(
-                f"buttonbox_joint_{i}"
-            ).qpos.copy()
+            site_id = self._button_site_ids[i]
+            ob_info[f"privileged_button_{i}_pos"] = self._data.site_xpos[site_id].copy()
+            # ob_info[f"privileged_button_{i}_pos"] = self._data.joint(
+            #    f"buttonbox_joint_{i}"
+            # ).qpos.copy()
             ob_info[f"privileged_button_{i}_vel"] = self._data.joint(
                 f"buttonbox_joint_{i}"
             ).qvel.copy()
@@ -719,11 +721,11 @@ class SceneEnv(ManipSpaceEnv):
 
         # Drawer states.
         ob_info["privileged_drawer_pos"] = self._data.joint("drawer_slide").qpos.copy()
-        ob_info["privileged_drawer_state"] = self._drawer_state()
         ob_info["privileged_drawer_vel"] = self._data.joint("drawer_slide").qvel.copy()
         ob_info["privileged_drawer_handle_pos"] = self._data.site_xpos[
             self._drawer_site_id
         ].copy()
+        ob_info["privileged_drawer_handle_state"] = self._drawer_state()
         ob_info["privileged_drawer_handle_yaw"] = np.array(
             [
                 lie.SO3.from_matrix(
@@ -739,11 +741,11 @@ class SceneEnv(ManipSpaceEnv):
 
         # Window states.
         ob_info["privileged_window_pos"] = self._data.joint("window_slide").qpos.copy()
-        ob_info["privileged_window_state"] = self._window_state()
         ob_info["privileged_window_vel"] = self._data.joint("window_slide").qvel.copy()
         ob_info["privileged_window_handle_pos"] = self._data.site_xpos[
             self._window_site_id
         ].copy()
+        ob_info["privileged_window_handle_state"] = self._window_state()
         ob_info["privileged_window_handle_yaw"] = np.array(
             [
                 lie.SO3.from_matrix(

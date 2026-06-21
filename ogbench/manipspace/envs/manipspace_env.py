@@ -22,12 +22,12 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
     def __init__(
         self,
-        ob_type='states',
+        ob_type="states",
         physics_timestep=0.002,
         control_timestep=0.05,
         terminate_at_goal=True,
-        success_timing='post',
-        mode='task',
+        success_timing="post",
+        mode="task",
         visualize_info=True,
         pixel_transparent_arm=True,
         reward_task_id=None,
@@ -61,8 +61,10 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         )
 
         # Define constants.
-        self._desc_dir = Path(__file__).resolve().parent / '..' / 'descriptions'
-        self._home_qpos = np.asarray([-np.pi / 2, -np.pi / 2, np.pi / 2, -np.pi / 2, -np.pi / 2, 0])
+        self._desc_dir = Path(__file__).resolve().parent / ".." / "descriptions"
+        self._home_qpos = np.asarray(
+            [-np.pi / 2, -np.pi / 2, np.pi / 2, -np.pi / 2, -np.pi / 2, 0]
+        )
         self._effector_down_rotation = lie.SO3(np.asarray([0.0, 1.0, 0.0, 0.0]))
         self._workspace_bounds = np.asarray([[0.25, -0.35, 0.02], [0.6, 0.35, 0.35]])
         self._arm_sampling_bounds = np.asarray([[0.25, -0.35, 0.20], [0.6, 0.35, 0.35]])
@@ -99,26 +101,28 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         self._reward_task_id = reward_task_id
         self._use_oracle_rep = use_oracle_rep
 
-        assert ob_type in ['states', 'pixels']
-        assert success_timing in ['pre', 'post']
+        assert ob_type in ["states", "pixels"]
+        assert success_timing in ["pre", "post"]
 
         # Initialize inverse kinematics controller.
         ik_mjcf = mjcf.from_path(
-            (self._desc_dir / 'universal_robots_ur5e' / 'ur5e.xml'),
+            (self._desc_dir / "universal_robots_ur5e" / "ur5e.xml"),
             escape_separators=True,
         )
         xml_str = mjcf_utils.to_string(ik_mjcf)
         assets = mjcf_utils.get_assets(ik_mjcf)
         ik_model = mujoco.MjModel.from_xml_string(xml_str, assets)
 
-        self._ik = controllers.DiffIKController(model=ik_model, sites=['attachment_site'])
+        self._ik = controllers.DiffIKController(
+            model=ik_model, sites=["attachment_site"]
+        )
 
         # Define action space.
         action_range = np.array([0.05, 0.05, 0.05, 0.3, 1.0])
         self.action_low = -action_range
         self.action_high = action_range
 
-        if self._mode == 'task':
+        if self._mode == "task":
             # Set task goals.
             self.task_infos = []
             self.cur_task_id = None
@@ -139,16 +143,16 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
         ex_ob = self.compute_observation()
 
-        if self._ob_type == 'pixels':
+        if self._ob_type == "pixels":
             return gym.spaces.Dict(
                 {
-                    'rgb': Box(
+                    "rgb": Box(
                         low=0,
                         high=255,
                         shape=(self._render_height, self._render_width, 3),
                         dtype=np.uint8,
                     ),
-                    'depth': Box(
+                    "depth": Box(
                         low=0.0,
                         high=np.inf,
                         shape=(
@@ -157,14 +161,18 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
                         ),
                         dtype=np.float32,
                     ),
-                    'mask': Box(
+                    "mask": Box(
                         low=0,
                         high=255,
                         shape=(self._render_height, self._render_width, 2),
                         dtype=np.int32,
                     ),
-                    'intrinsics': Box(low=-np.inf, high=np.inf, shape=(3, 3), dtype=np.float32),
-                    'extrinsics': Box(low=-np.inf, high=np.inf, shape=(4, 4), dtype=np.float32),
+                    "intrinsics": Box(
+                        low=-np.inf, high=np.inf, shape=(3, 3), dtype=np.float32
+                    ),
+                    "extrinsics": Box(
+                        low=-np.inf, high=np.inf, shape=(4, 4), dtype=np.float32
+                    ),
                 }
             )
         else:
@@ -188,44 +196,50 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
     def normalize_action(self, action):
         """Normalize the action to the range [-1, 1]."""
-        action = 2 * (action - self.action_low) / (self.action_high - self.action_low) - 1
+        action = (
+            2 * (action - self.action_low) / (self.action_high - self.action_low) - 1
+        )
         return np.clip(action, -1, 1)
 
     def unnormalize_action(self, action):
         """Unnormalize the action to the range [action_low, action_high]."""
-        return 0.5 * (action + 1) * (self.action_high - self.action_low) + self.action_low
+        return (
+            0.5 * (action + 1) * (self.action_high - self.action_low) + self.action_low
+        )
 
     def set_tasks(self):
         pass
 
     def build_mjcf_model(self):
         # Set scene.
-        arena_mjcf = mjcf.from_path((self._desc_dir / 'floor_wall.xml').as_posix())
-        arena_mjcf.model = 'ur5e_arena'
+        arena_mjcf = mjcf.from_path((self._desc_dir / "floor_wall.xml").as_posix())
+        arena_mjcf.model = "ur5e_arena"
 
         arena_mjcf.statistic.center = (0.3, 0, 0.15)
         arena_mjcf.statistic.extent = 0.7
-        getattr(arena_mjcf.visual, 'global').elevation = -20
-        getattr(arena_mjcf.visual, 'global').azimuth = 180
+        getattr(arena_mjcf.visual, "global").elevation = -20
+        getattr(arena_mjcf.visual, "global").azimuth = 180
         arena_mjcf.statistic.meansize = 0.04
         arena_mjcf.visual.map.znear = 0.1
         arena_mjcf.visual.map.zfar = 10.0
 
         # Add UR5e robot arm.
         ur5e_mjcf = mjcf.from_path(
-            (self._desc_dir / 'universal_robots_ur5e' / 'ur5e.xml'),
+            (self._desc_dir / "universal_robots_ur5e" / "ur5e.xml"),
             escape_separators=True,
         )
-        ur5e_mjcf.model = 'ur5e'
+        ur5e_mjcf.model = "ur5e"
 
-        for light in ur5e_mjcf.find_all('light'):
+        for light in ur5e_mjcf.find_all("light"):
             light.remove()
             del light
 
         # Attach the robotiq gripper to the UR5e flange.
-        gripper_mjcf = mjcf.from_path((self._desc_dir / 'robotiq_2f85' / '2f85.xml'), escape_separators=True)
-        gripper_mjcf.model = 'robotiq'
-        mjcf_utils.attach(ur5e_mjcf, gripper_mjcf, 'attachment_site')
+        gripper_mjcf = mjcf.from_path(
+            (self._desc_dir / "robotiq_2f85" / "2f85.xml"), escape_separators=True
+        )
+        gripper_mjcf.model = "robotiq"
+        mjcf_utils.attach(ur5e_mjcf, gripper_mjcf, "attachment_site")
 
         # Attach UR5e to the scene.
         mjcf_utils.attach(arena_mjcf, ur5e_mjcf)
@@ -235,31 +249,39 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         # Cache joint and actuator elements.
         self._arm_jnts = mjcf_utils.safe_find_all(
             ur5e_mjcf,
-            'joint',
+            "joint",
             exclude_attachments=True,
         )
         self._arm_acts = mjcf_utils.safe_find_all(
             ur5e_mjcf,
-            'actuator',
+            "actuator",
             exclude_attachments=True,
         )
-        self._gripper_jnts = mjcf_utils.safe_find_all(gripper_mjcf, 'joint', exclude_attachments=True)
-        self._gripper_acts = mjcf_utils.safe_find_all(gripper_mjcf, 'actuator', exclude_attachments=True)
+        self._gripper_jnts = mjcf_utils.safe_find_all(
+            gripper_mjcf, "joint", exclude_attachments=True
+        )
+        self._gripper_acts = mjcf_utils.safe_find_all(
+            gripper_mjcf, "actuator", exclude_attachments=True
+        )
 
-        if self._ob_type == 'pixels':
+        if self._ob_type == "pixels":
             # Adjust colors for pixel-based tasks.
-            arena_mjcf.find('material', 'ur5e/robotiq/black').rgba = self._colors['purple']
-            arena_mjcf.find('material', 'ur5e/robotiq/pad_gray').rgba = self._colors['purple']
+            arena_mjcf.find("material", "ur5e/robotiq/black").rgba = self._colors[
+                "purple"
+            ]
+            arena_mjcf.find("material", "ur5e/robotiq/pad_gray").rgba = self._colors[
+                "purple"
+            ]
             if self._pixel_transparent_arm:
-                arena_mjcf.find('material', 'ur5e/robotiq/metal').rgba[3] = 0.1
-                arena_mjcf.find('material', 'ur5e/robotiq/silicone').rgba[3] = 0.1
-                arena_mjcf.find('material', 'ur5e/robotiq/gray').rgba[3] = 0.1
-                arena_mjcf.find('material', 'ur5e/robotiq/black').rgba[3] = 0.1
-                arena_mjcf.find('material', 'ur5e/robotiq/pad_gray').rgba[3] = 0.5
-                arena_mjcf.find('material', 'ur5e/black').rgba[3] = 0.1
-                arena_mjcf.find('material', 'ur5e/jointgray').rgba[3] = 0.1
-                arena_mjcf.find('material', 'ur5e/linkgray').rgba[3] = 0.1
-                arena_mjcf.find('material', 'ur5e/lightblue').rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/robotiq/metal").rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/robotiq/silicone").rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/robotiq/gray").rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/robotiq/black").rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/robotiq/pad_gray").rgba[3] = 0.5
+                arena_mjcf.find("material", "ur5e/black").rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/jointgray").rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/linkgray").rgba[3] = 0.1
+                arena_mjcf.find("material", "ur5e/lightblue").rgba[3] = 0.1
 
         # Add bounding boxes to visualize the workspace and object sampling bounds.
         mjcf_utils.add_bounding_box_site(
@@ -268,7 +290,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             upper=np.asarray((*self._target_sampling_bounds[1], 0.02)),
             rgba=(0.6, 0.3, 0.3, 0.2),
             group=4,
-            name='object_bounds',
+            name="object_bounds",
         )
         mjcf_utils.add_bounding_box_site(
             arena_mjcf.worldbody,
@@ -276,7 +298,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             upper=np.asarray(self._arm_sampling_bounds[1]),
             rgba=(0.3, 0.6, 0.3, 0.2),
             group=4,
-            name='arm_bounds',
+            name="arm_bounds",
         )
 
         return arena_mjcf
@@ -287,28 +309,46 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
     def post_compilation(self):
         # Arm joint and actuator IDs.
         arm_joint_names = [j.full_identifier for j in self._arm_jnts]
-        self._arm_joint_ids = np.asarray([self._model.joint(name).id for name in arm_joint_names])
+        self._arm_joint_ids = np.asarray(
+            [self._model.joint(name).id for name in arm_joint_names]
+        )
         actuator_names = [a.full_identifier for a in self._arm_acts]
-        self._arm_actuator_ids = np.asarray([self._model.actuator(name).id for name in actuator_names])
+        self._arm_actuator_ids = np.asarray(
+            [self._model.actuator(name).id for name in actuator_names]
+        )
         gripper_actuator_names = [a.full_identifier for a in self._gripper_acts]
-        self._gripper_actuator_ids = np.asarray([self._model.actuator(name).id for name in gripper_actuator_names])
-        self._gripper_opening_joint_id = self._model.joint('ur5e/robotiq/right_driver_joint').id
+        self._gripper_actuator_ids = np.asarray(
+            [self._model.actuator(name).id for name in gripper_actuator_names]
+        )
+        self._gripper_opening_joint_id = self._model.joint(
+            "ur5e/robotiq/right_driver_joint"
+        ).id
 
         # Modify PD gains.
-        self._model.actuator_gainprm[self._arm_actuator_ids, 0] = np.asarray([4500, 4500, 4500, 2000, 2000, 500])
-        self._model.actuator_gainprm[self._arm_actuator_ids, 2] = np.asarray([-450, -450, -450, -200, -200, -50])
-        self._model.actuator_biasprm[self._arm_actuator_ids, 1] = -np.asarray([4500, 4500, 4500, 2000, 2000, 500])
+        self._model.actuator_gainprm[self._arm_actuator_ids, 0] = np.asarray(
+            [4500, 4500, 4500, 2000, 2000, 500]
+        )
+        self._model.actuator_gainprm[self._arm_actuator_ids, 2] = np.asarray(
+            [-450, -450, -450, -200, -200, -50]
+        )
+        self._model.actuator_biasprm[self._arm_actuator_ids, 1] = -np.asarray(
+            [4500, 4500, 4500, 2000, 2000, 500]
+        )
 
         # Site IDs.
-        self._pinch_site_id = self._model.site('ur5e/robotiq/pinch').id
-        self._attach_site_id = self._model.site('ur5e/attachment_site').id
+        self._pinch_site_id = self._model.site("ur5e/robotiq/pinch").id
+        self._attach_site_id = self._model.site("ur5e/attachment_site").id
 
         pinch_pose = lie.SE3.from_rotation_and_translation(
-            rotation=lie.SO3.from_matrix(self._data.site_xmat[self._pinch_site_id].reshape(3, 3)),
+            rotation=lie.SO3.from_matrix(
+                self._data.site_xmat[self._pinch_site_id].reshape(3, 3)
+            ),
             translation=self._data.site_xpos[self._pinch_site_id],
         )
         attach_pose = lie.SE3.from_rotation_and_translation(
-            rotation=lie.SO3.from_matrix(self._data.site_xmat[self._attach_site_id].reshape(3, 3)),
+            rotation=lie.SO3.from_matrix(
+                self._data.site_xmat[self._attach_site_id].reshape(3, 3)
+            ),
             translation=self._data.site_xpos[self._attach_site_id],
         )
         self._T_pa = pinch_pose.inverse() @ attach_pose
@@ -319,25 +359,29 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         pass
 
     def reset(self, options=None, *args, **kwargs):
-        if self._mode == 'task':
+        if self._mode == "task":
             # Set the task goal.
             if options is None:
                 options = {}
 
             if self._reward_task_id is not None:
                 # Use the pre-defined task.
-                assert 1 <= self._reward_task_id <= self.num_tasks, f'Task ID must be in [1, {self.num_tasks}].'
+                assert (
+                    1 <= self._reward_task_id <= self.num_tasks
+                ), f"Task ID must be in [1, {self.num_tasks}]."
                 self.cur_task_id = self._reward_task_id
                 self.cur_task_info = self.task_infos[self.cur_task_id - 1]
-            elif 'task_id' in options:
+            elif "task_id" in options:
                 # Use the pre-defined task.
-                assert 1 <= options['task_id'] <= self.num_tasks, f'Task ID must be in [1, {self.num_tasks}].'
-                self.cur_task_id = options['task_id']
+                assert (
+                    1 <= options["task_id"] <= self.num_tasks
+                ), f"Task ID must be in [1, {self.num_tasks}]."
+                self.cur_task_id = options["task_id"]
                 self.cur_task_info = self.task_infos[self.cur_task_id - 1]
-            elif 'task_info' in options:
+            elif "task_info" in options:
                 # Use the provided task information.
                 self.cur_task_id = None
-                self.cur_task_info = options['task_info']
+                self.cur_task_info = options["task_info"]
             else:
                 # Randomly sample a task.
                 self.cur_task_id = np.random.randint(1, self.num_tasks + 1)
@@ -345,16 +389,16 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
             # Whether to provide a rendering of the goal.
             self._render_goal = False
-            if 'render_goal' in options:
-                self._render_goal = options['render_goal']
+            if "render_goal" in options:
+                self._render_goal = options["render_goal"]
 
         return super().reset(*args, **kwargs)
 
-    def step(self, action, unnormalize: bool = False, absolute: bool = True):
+    def step(self, action, unnormalize: bool = True, absolute: bool = False):
         if self._reset_next_step:
             return self.reset()
 
-        if self._success_timing == 'pre':
+        if self._success_timing == "pre":
             success = self._success
             terminated = self.terminate_episode()
             reward = self.compute_reward()
@@ -365,8 +409,8 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             t_pos = action[:3]
             t_yaw = action[3]
             t_gripper = action[4]
-            d_pos = t_pos - self._prev_ob_info['proprio_effector_pos']
-            d_yaw = t_yaw - self._prev_ob_info['proprio_effector_yaw']
+            d_pos = t_pos - self._prev_ob_info["proprio_effector_pos"]
+            d_yaw = t_yaw - self._prev_ob_info["proprio_effector_yaw"]
             # d_gripper = t_gripper - self._prev_ob_info['proprio_gripper_opening']
 
             action = np.concatenate([d_pos, [d_yaw], [t_gripper]])
@@ -378,7 +422,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
         self.post_step()
 
-        if self._success_timing == 'post':
+        if self._success_timing == "post":
             success = self._success
             terminated = self.terminate_episode()
             reward = self.compute_reward()
@@ -387,7 +431,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         ob = self.compute_observation()
         info = self.get_step_info()
 
-        info['success'] = success
+        info["success"] = success
 
         return ob, reward, terminated, truncated, info
 
@@ -420,7 +464,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
     def set_new_target(self, return_info=True):
         pass
 
-    def set_control(self, action, unnormalize: bool = False):
+    def set_control(self, action, unnormalize: bool = True):
         if unnormalize:
             action = self.unnormalize_action(action)
         a_pos, a_ori, a_gripper = action[:3], action[3], action[4]
@@ -430,7 +474,9 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         effector_yaw = lie.SO3.from_matrix(
             self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
         ).compute_yaw_radians()
-        gripper_opening = np.array(np.clip([self._data.qpos[self._gripper_opening_joint_id] / 0.8], 0, 1))
+        gripper_opening = np.array(
+            np.clip([self._data.qpos[self._gripper_opening_joint_id] / 0.8], 0, 1)
+        )
         target_effector_translation = effector_pos + a_pos
         target_effector_orientation = (
             lie.SO3.from_z_radians(a_ori)
@@ -450,7 +496,9 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             -np.pi,
             +np.pi,
         )
-        target_effector_orientation = lie.SO3.from_z_radians(yaw) @ self._effector_down_rotation
+        target_effector_orientation = (
+            lie.SO3.from_z_radians(yaw) @ self._effector_down_rotation
+        )
         target_gripper_opening = np.clip(target_gripper_opening, 0.0, 1.0)
 
         # Pinch pose in the world frame -> attach pose in the world frame.
@@ -480,38 +528,49 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         ob_info = {}
 
         # Proprioceptive observations
-        ob_info['proprio_joint_pos'] = self._data.qpos[self._arm_joint_ids].copy()
-        ob_info['proprio_joint_vel'] = self._data.qvel[self._arm_joint_ids].copy()
-        ob_info['proprio_effector_pos'] = self._data.site_xpos[self._pinch_site_id].copy()
-        ob_info['proprio_effector_yaw'] = np.array(
-            [lie.SO3.from_matrix(self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)).compute_yaw_radians()]
+        ob_info["proprio_joint_pos"] = self._data.qpos[self._arm_joint_ids].copy()
+        ob_info["proprio_joint_vel"] = self._data.qvel[self._arm_joint_ids].copy()
+        ob_info["proprio_effector_pos"] = self._data.site_xpos[
+            self._pinch_site_id
+        ].copy()
+        ob_info["proprio_effector_yaw"] = np.array(
+            [
+                lie.SO3.from_matrix(
+                    self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
+                ).compute_yaw_radians()
+            ]
         )
-        ob_info['proprio_effector_quat'] = np.array(
-            lie.SO3.from_matrix(self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)).wxyz
+        ob_info["proprio_effector_quat"] = np.array(
+            lie.SO3.from_matrix(
+                self._data.site_xmat[self._pinch_site_id].copy().reshape(3, 3)
+            ).wxyz
         )
-        ob_info['proprio_gripper_opening'] = np.array(
+        ob_info["proprio_gripper_opening"] = np.array(
             np.clip([self._data.qpos[self._gripper_opening_joint_id] / 0.8], 0, 1)
         )
-        ob_info['proprio_gripper_vel'] = self._data.qvel[[self._gripper_opening_joint_id]].copy()
-        ob_info['proprio_gripper_contact'] = np.array(
+        ob_info["proprio_gripper_vel"] = self._data.qvel[
+            [self._gripper_opening_joint_id]
+        ].copy()
+        ob_info["proprio_gripper_contact"] = np.array(
             [
                 np.clip(
-                    np.linalg.norm(self._data.body('ur5e/robotiq/right_pad').cfrc_ext) / 50,
+                    np.linalg.norm(self._data.body("ur5e/robotiq/right_pad").cfrc_ext)
+                    / 50,
                     0,
                     1,
                 )
             ]
         )
-        ob_info['proprio_gripper_state'] = self._ee_state()
+        ob_info["proprio_gripper_state"] = self._ee_state()
 
         self.add_object_info(ob_info)
 
-        ob_info['prev_qpos'] = self._prev_qpos.copy()
-        ob_info['prev_qvel'] = self._prev_qvel.copy()
-        ob_info['qpos'] = self._data.qpos.copy()
-        ob_info['qvel'] = self._data.qvel.copy()
-        ob_info['control'] = self._data.ctrl.copy()
-        ob_info['time'] = np.array([self._data.time])
+        ob_info["prev_qpos"] = self._prev_qpos.copy()
+        ob_info["prev_qvel"] = self._prev_qvel.copy()
+        ob_info["qpos"] = self._data.qpos.copy()
+        ob_info["qvel"] = self._data.qvel.copy()
+        ob_info["control"] = self._data.ctrl.copy()
+        ob_info["time"] = np.array([self._data.time])
 
         return ob_info
 
@@ -536,7 +595,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
     def _resolve_camera_name(self, camera=None):
         if camera is not None:
             return camera
-        return 'front' if self._ob_type == 'states' else 'front_pixels'
+        return "front" if self._ob_type == "states" else "front_pixels"
 
     def _resolve_camera_id(self, camera=None):
         cam_name = self._resolve_camera_name(camera)
@@ -550,7 +609,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             cam_name,
         )
         if cam_id < 0:
-            raise ValueError(f'Unknown camera: {cam_name}')
+            raise ValueError(f"Unknown camera: {cam_name}")
         return cam_id
 
     def get_camera_intrinsics(self, camera=None):
@@ -593,7 +652,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         return T_cw
 
     def compute_observation(self):
-        if self._ob_type == 'pixels':
+        if self._ob_type == "pixels":
             return self.get_pixel_observation()
         else:
             xyz_center = np.array([0.425, 0.0, 0.0])
@@ -602,13 +661,13 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
             ob_info = self.compute_ob_info()
             ob = [
-                ob_info['proprio_joint_pos'],
-                ob_info['proprio_joint_vel'],
-                (ob_info['proprio_effector_pos'] - xyz_center) * xyz_scaler,
-                np.cos(ob_info['proprio_effector_yaw']),
-                np.sin(ob_info['proprio_effector_yaw']),
-                ob_info['proprio_gripper_opening'] * gripper_scaler,
-                ob_info['proprio_gripper_contact'],
+                ob_info["proprio_joint_pos"],
+                ob_info["proprio_joint_vel"],
+                (ob_info["proprio_effector_pos"] - xyz_center) * xyz_scaler,
+                np.cos(ob_info["proprio_effector_yaw"]),
+                np.sin(ob_info["proprio_effector_yaw"]),
+                ob_info["proprio_gripper_opening"] * gripper_scaler,
+                ob_info["proprio_gripper_contact"],
             ]
 
             return np.concatenate(ob)
@@ -618,10 +677,10 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
     def get_reset_info(self):
         reset_info = self.compute_ob_info()
-        if self._mode == 'task':
-            reset_info['goal'] = self._cur_goal_ob
+        if self._mode == "task":
+            reset_info["goal"] = self._cur_goal_ob
             if self._render_goal is not None:
-                reset_info['goal_rendered'] = self._cur_goal_rendered
+                reset_info["goal_rendered"] = self._cur_goal_rendered
         return reset_info
 
     def get_step_info(self):
@@ -641,6 +700,6 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         **kwargs,
     ):
         if camera is None:
-            camera = 'front' if self._ob_type == 'states' else 'front_pixels'
+            camera = "front" if self._ob_type == "states" else "front_pixels"
 
         return super().render(camera=camera, *args, **kwargs)

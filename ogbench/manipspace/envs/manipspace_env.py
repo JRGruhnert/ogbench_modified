@@ -394,7 +394,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
         return super().reset(*args, **kwargs)
 
-    def step(self, action):
+    def step(self, action, unnormalize: bool = False):
         if self._reset_next_step:
             return self.reset()
 
@@ -404,7 +404,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             reward = self.compute_reward()
 
         action = np.array(action)
-        self.set_control(action)
+        self.set_control(action, unnormalize)
         self.pre_step()
         mujoco.mj_step(self._model, self._data, nstep=self._n_steps)
         mujoco.mj_rnePostConstraint(self._model, self._data)  # Compute contact forces.
@@ -449,8 +449,9 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
     def set_new_target(self, return_info=True):
         pass
 
-    def set_control(self, action):
-        action = self.unnormalize_action(action)
+    def set_control(self, action, unnormalize: bool = False):
+        if unnormalize:
+            action = self.unnormalize_action(action)
         a_pos, a_ori, a_gripper = action[:3], action[3], action[4]
 
         # Compute target effector pose based on the relative action.

@@ -710,10 +710,12 @@ class SceneEnv(ManipSpaceEnv):
         for i in range(self._num_buttons):
             ob_info[f"privileged_button_{i}_state"] = self._button_state(i)
             site_id = self._button_site_ids[i]
-            ob_info[f"privileged_button_{i}_pos"] = self._data.site_xpos[site_id].copy()
-            # ob_info[f"privileged_button_{i}_pos"] = self._data.joint(
-            #    f"buttonbox_joint_{i}"
-            # ).qpos.copy()
+            ob_info[f"privileged_button_{i}_pos_full"] = self._data.site_xpos[
+                site_id
+            ].copy()
+            ob_info[f"privileged_button_{i}_pos"] = self._data.joint(
+                f"buttonbox_joint_{i}"
+            ).qpos.copy()
             ob_info[f"privileged_button_{i}_vel"] = self._data.joint(
                 f"buttonbox_joint_{i}"
             ).qvel.copy()

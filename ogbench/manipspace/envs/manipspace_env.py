@@ -394,7 +394,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
         return super().reset(*args, **kwargs)
 
-    def step(self, action, unnormalize: bool = False):
+    def step(self, action, unnormalize: bool = False, absolute: bool = True):
         if self._reset_next_step:
             return self.reset()
 
@@ -404,10 +404,22 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             reward = self.compute_reward()
 
         action = np.array(action)
-        self.set_control(action, unnormalize)
         self.pre_step()
+        if absolute:
+            t_pos = action[:3]
+            t_yaw = action[3]
+            t_gripper = action[4]
+            d_pos = t_pos - self._prev_ob_info["proprio_effector_pos"]
+            d_yaw = t_yaw - self._prev_ob_info["proprio_effector_yaw"]
+            d_gripper = t_gripper - self._prev_ob_info["proprio_gripper_opening"]
+
+            action = np.array([d_pos[0], d_pos[1], d_pos[2], d_yaw, d_gripper])
+
+        self.set_control(action, unnormalize)
+
         mujoco.mj_step(self._model, self._data, nstep=self._n_steps)
         mujoco.mj_rnePostConstraint(self._model, self._data)  # Compute contact forces.
+
         self.post_step()
 
         if self._success_timing == "post":
@@ -422,6 +434,9 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         info["success"] = success
 
         return ob, reward, terminated, truncated, info
+
+    def error(self, prev_pos, pref_yaw, pref_opening) -> float:
+        return 0.0
 
     def initialize_arm(self):
         # Sample initial effector position and orientation.

@@ -2,13 +2,16 @@ import time
 
 from ogbench.manipspace.envs.scene_env2 import SceneEnv2
 from ogbench.manipspace.oracles.plan.faucet_plan import FaucetPlanOracle
-
+from ogbench.manipspace.oracles.plan.lid_plan import LidPlanOracle
+from ogbench.manipspace.oracles.plan.peg_plan import PegPlanOracle
 env = SceneEnv2(env_type="scene", mode="task")
 obs, info = env.reset()
 
 # ── Set up oracle ───────────────────────────────────
-faucet_oracle = FaucetPlanOracle(env)
-faucet_oracle.reset(obs, info)
+#oracle = FaucetPlanOracle(env)
+#oracle = LidPlanOracle(env)
+oracle = PegPlanOracle(env)
+oracle.reset(obs, info)
 
 d = env._data
 m = env._model
@@ -34,12 +37,13 @@ env.launch_passive_viewer()
 
 for step in range(2000):
     time.sleep(0.05)
-    if faucet_oracle.done:
+    if oracle.done:
         print(f"\n✅ Oracle finished at step {step}")
         obs, info = env.reset()
-        faucet_oracle.reset(obs, info)
+        print(info)
+        oracle.reset(obs, info)
 
-    action = faucet_oracle.select_action(obs, info)
+    action = oracle.select_action(obs, info)
     obs, reward, terminated, truncated, info = env.step(action)
     env.sync_passive_viewer()
 

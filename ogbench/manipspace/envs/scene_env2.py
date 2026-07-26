@@ -25,7 +25,9 @@ class SceneEnv2(ManipSpaceEnv):
             [self._colors["lightred"], self._colors["lightblue"]]
         )
         self._num_cubes = 1
-        self._num_buttons = 2
+        self._num_buttons = 1
+        self._num_pegs = 1
+        self._num_lids = 1
         self._num_button_states = 2
         self._cur_button_states = np.array([0] * self._num_buttons)
 
@@ -33,10 +35,11 @@ class SceneEnv2(ManipSpaceEnv):
         self._target_task = "cube"
         # The target cube position is stored in the mocap object.
         self._target_block = 0
+        self._target_peg = 0
+        self._target_lid = 0
         self._target_button = 0
         self._target_button_states = np.array([0] * self._num_buttons)
-        self._target_faucet_pos = -1.57
-        self._target_window_pos = 0.0
+        self._target_faucet_yaw = -1.57
 
     def set_state(self, qpos, qvel, button_states):
         self._cur_button_states = button_states.copy()
@@ -46,78 +49,88 @@ class SceneEnv2(ManipSpaceEnv):
     def set_tasks(self):
         self.task_infos = [
             dict(
-                task_name="task1_open_faucet_and_window",
+                task_name="task1_open_faucet_and_move_peg",
                 init=dict(
                     block_xyzs=np.array([[0.35, 0.05, 0.02]]),
-                    button_states=np.array([1, 1]),
-                    faucet_pos=-1.57,
-                    window_pos=0.0,
+                    peg_xyzs=np.array([[0.35, 0.08, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=-1.57,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.35, 0.05, 0.02]]),
-                    button_states=np.array([1, 1]),
-                    faucet_pos=1.57,
-                    window_pos=0.2,
+                    peg_xyzs=np.array([[0.45, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=1.57,
                 ),
             ),
             dict(
-                task_name="task2_close_faucet_and_window",
+                task_name="task2_close_faucet_and_move_lid",
                 init=dict(
                     block_xyzs=np.array([[0.35, -0.05, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    faucet_pos=1.57,
-                    window_pos=0.2,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=1.57,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.35, -0.05, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    faucet_pos=-1.57,
-                    window_pos=0.0,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.45, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=-1.57,
                 ),
             ),
             dict(
-                task_name="task3_faucet_open_window_closed",
+                task_name="task3_move_cube_and_press_button",
                 init=dict(
                     block_xyzs=np.array([[0.4, -0.05, 0.02]]),
-                    button_states=np.array([1, 0]),
-                    faucet_pos=-1.57,
-                    window_pos=0.0,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=-1.57,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.4, 0.15, 0.02]]),
-                    button_states=np.array([1, 1]),
-                    faucet_pos=1.57,
-                    window_pos=0.0,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([1]),
+                    faucet_yaw=-1.57,
                 ),
             ),
             dict(
                 task_name="task4_rearrange_open_faucet",
                 init=dict(
                     block_xyzs=np.array([[0.35, 0.05, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    faucet_pos=-1.57,
-                    window_pos=0.0,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=-1.57,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.45, 0.1, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    faucet_pos=1.57,
-                    window_pos=0.2,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=1.57,
                 ),
             ),
             dict(
                 task_name="task5_rearrange_close_faucet",
                 init=dict(
                     block_xyzs=np.array([[0.35, 0.15, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    faucet_pos=1.57,
-                    window_pos=0.2,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=1.57,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.45, -0.05, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    faucet_pos=-1.57,
-                    window_pos=0.0,
+                    peg_xyzs=np.array([[0.35, 0.05, 0.02]]),
+                    lid_xyzs=np.array([[0.3, 0.3, 0.084]]),
+                    button_states=np.array([0]),
+                    faucet_yaw=-1.57,
                 ),
             ),
         ]
@@ -133,8 +146,10 @@ class SceneEnv2(ManipSpaceEnv):
         arena_mjcf.include_copy(button_mjcf)
         faucet_mjcf = mjcf.from_path((self._desc_dir / "faucet.xml").as_posix())
         arena_mjcf.include_copy(faucet_mjcf)
-        window_mjcf = mjcf.from_path((self._desc_dir / "window.xml").as_posix())
-        arena_mjcf.include_copy(window_mjcf)
+        peg_mjcf = mjcf.from_path((self._desc_dir / "assembly_peg.xml").as_posix())
+        arena_mjcf.include_copy(peg_mjcf)
+        box_mjcf = mjcf.from_path((self._desc_dir / "box.xml").as_posix())
+        arena_mjcf.include_copy(box_mjcf)
 
         # Save geoms.
         self._cube_geoms_list = []
@@ -150,6 +165,30 @@ class SceneEnv2(ManipSpaceEnv):
         self._button_geoms_list = []
         for i in range(self._num_buttons):
             self._button_geoms_list.append([button_mjcf.find("geom", f"btngeom_{i}")])
+
+        # Peg geoms.
+        self._peg_geoms_list = []
+        for i in range(self._num_pegs):
+            self._peg_geoms_list.append(
+                peg_mjcf.find("body", f"peg_{i}").find_all("geom")
+            )
+        self._peg_target_geoms_list = []
+        for i in range(self._num_pegs):
+            self._peg_target_geoms_list.append(
+                peg_mjcf.find("body", f"peg_target_{i}").find_all("geom")
+            )
+
+        # Lid geoms.
+        self._lid_geoms_list = []
+        for i in range(self._num_lids):
+            self._lid_geoms_list.append(
+                box_mjcf.find("body", f"box_lid_{i}").find_all("geom")
+            )
+        self._lid_target_geoms_list = []
+        for i in range(self._num_lids):
+            self._lid_target_geoms_list.append(
+                box_mjcf.find("body", f"box_lid_target_{i}").find_all("geom")
+            )
 
         # Add cameras.
         cameras = {
@@ -189,12 +228,51 @@ class SceneEnv2(ManipSpaceEnv):
             self._model.site(f"btntop_{i}").id for i in range(self._num_buttons)
         ]
 
-        # Faucet and window site IDs.
+        # Faucet site IDs.
         self._faucet_site_id = self._model.site("faucet_handle_center").id
         self._faucet_target_site_id = self._model.site("faucet_handle_center_target").id
 
-        self._window_site_id = self._model.site("window_handle_center").id
-        self._window_target_site_id = self._model.site("window_handle_center_target").id
+        # Peg geom IDs — use body lookup because peg geoms have auto-generated names.
+        peg_body_id = self._model.body("peg_0").id
+        self._peg_geom_ids_list = [
+            [i for i in range(self._model.ngeom) if self._model.geom_bodyid[i] == peg_body_id]
+        ]
+        self._peg_target_mocap_ids = [
+            self._model.body(f"peg_target_{i}").mocapid[0]
+            for i in range(self._num_pegs)
+        ]
+        peg_target_body_id = self._model.body("peg_target_0").id
+        self._peg_target_geom_ids_list = [
+            [i for i in range(self._model.ngeom) if self._model.geom_bodyid[i] == peg_target_body_id]
+        ]
+
+        # Lid geom IDs — use body lookup because lid geoms have auto-generated names.
+        lid_body_id = self._model.body("box_lid_0").id
+        self._lid_geom_ids_list = [
+            [i for i in range(self._model.ngeom) if self._model.geom_bodyid[i] == lid_body_id]
+        ]
+        self._lid_target_mocap_ids = [
+            self._model.body(f"box_lid_target_{i}").mocapid[0]
+            for i in range(self._num_lids)
+        ]
+        lid_target_body_id = self._model.body("box_lid_target_0").id
+        self._lid_target_geom_ids_list = [
+            [i for i in range(self._model.ngeom) if self._model.geom_bodyid[i] == lid_target_body_id]
+        ]
+
+        # Peg and lid site IDs.
+        self._peg_center_site_ids = [
+            self._model.site(f"peg_center_{i}").id for i in range(self._num_pegs)
+        ]
+        self._peg_handle_site_ids = [
+            self._model.site(f"peg_handle_site_{i}").id for i in range(self._num_pegs)
+        ]
+        self._lid_center_site_ids = [
+            self._model.site(f"box_lid_center_{i}").id for i in range(self._num_lids)
+        ]
+        self._lid_handle_site_ids = [
+            self._model.site(f"box_lid_handle_center_{i}").id for i in range(self._num_lids)
+        ]
 
     def _apply_button_states(self):
         # Adjust button colors based on the current state.
@@ -203,22 +281,6 @@ class SceneEnv2(ManipSpaceEnv):
                 self._model.geom(gid).rgba = self._colors[
                     "red" if self._cur_button_states[i] == 0 else "white"
                 ]
-
-        # Lock or unlock the window based on the button states.
-        # We adjust the damping of the joints to lock the window. This needs to be set carefully because
-        # setting it to a very high value can cause numerical instability. We use 1e6. This is a reasonably safe value,
-        # but it still allows the window to move very slightly with a strong enough force. We also tested
-        # 1e7, but it caused numerical instability when interacting with the cube.
-        if self._cur_button_states[1] == 0:
-            # Set the damping to a high value to lock the window.
-            self._model.joint("window_slide").damping[0] = 1e6
-            self._model.material("window_handle").rgba = self._colors[
-                "white"
-            ]  # self._colors["red"]
-        else:
-            # Unset the damping to unlock the window.
-            self._model.joint("window_slide").damping[0] = 2.0
-            self._model.material("window_handle").rgba = self._colors["white"]
 
         mujoco.mj_forward(self._model, self._data)
 
@@ -247,6 +309,24 @@ class SceneEnv2(ManipSpaceEnv):
                 self._data.joint(f"object_joint_{i}").qpos[:3] = obj_pos
                 self._data.joint(f"object_joint_{i}").qpos[3:] = obj_ori
 
+            # Randomize peg positions and orientations.
+            for i in range(self._num_pegs):
+                xy = self.np_random.uniform(*self._object_sampling_bounds)
+                obj_pos = (*xy, 0.02)
+                yaw = self.np_random.uniform(0, 2 * np.pi)
+                obj_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+                self._data.joint(f"peg_joint_{i}").qpos[:3] = obj_pos
+                self._data.joint(f"peg_joint_{i}").qpos[3:] = obj_ori
+
+            # Randomize lid positions and orientations.
+            for i in range(self._num_lids):
+                xy = self.np_random.uniform(*self._object_sampling_bounds)
+                obj_pos = (*xy, 0.02)
+                yaw = self.np_random.uniform(0, 2 * np.pi)
+                obj_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+                self._data.joint(f"box_lid_joint_{i}").qpos[:3] = obj_pos
+                self._data.joint(f"box_lid_joint_{i}").qpos[3:] = obj_ori
+
             # Randomize button states.
             for i in range(self._num_buttons):
                 self._cur_button_states[i] = self.np_random.choice(
@@ -254,9 +334,8 @@ class SceneEnv2(ManipSpaceEnv):
                 )
             self._apply_button_states()
 
-            # Randomize faucet and window positions.
+            # Randomize faucet position.
             self._data.joint("faucet_knob").qpos[0] = self.np_random.uniform(-1.57, 1.57)
-            self._data.joint("window_slide").qpos[0] = self.np_random.uniform(0, 0.2)
 
             # Set a new target.
             self.set_new_target(return_info=False)
@@ -275,12 +354,14 @@ class SceneEnv2(ManipSpaceEnv):
                 block_permutation
             ]
             # Get the current task info for the other objects.
+            init_peg_xyzs = self.cur_task_info["init"]["peg_xyzs"].copy()
+            goal_peg_xyzs = self.cur_task_info["goal"]["peg_xyzs"].copy()
+            init_lid_xyzs = self.cur_task_info["init"]["lid_xyzs"].copy()
+            goal_lid_xyzs = self.cur_task_info["goal"]["lid_xyzs"].copy()
             init_button_states = self.cur_task_info["init"]["button_states"].copy()
             goal_button_states = self.cur_task_info["goal"]["button_states"].copy()
-            init_faucet_pos = self.cur_task_info["init"]["faucet_pos"]
-            goal_faucet_pos = self.cur_task_info["goal"]["faucet_pos"]
-            init_window_pos = self.cur_task_info["init"]["window_pos"]
-            goal_window_pos = self.cur_task_info["goal"]["window_pos"]
+            init_faucet_yaw = self.cur_task_info["init"]["faucet_yaw"]
+            goal_faucet_yaw = self.cur_task_info["goal"]["faucet_yaw"]
 
             # First, force set the current scene to the goal state to obtain the goal observation.
             saved_qpos = self._data.qpos.copy()
@@ -297,10 +378,27 @@ class SceneEnv2(ManipSpaceEnv):
                 self._data.mocap_quat[self._cube_target_mocap_ids[i]] = (
                     lie.SO3.identity().wxyz.tolist()
                 )
+            for i in range(self._num_pegs):
+                self._data.joint(f"peg_joint_{i}").qpos[:3] = goal_peg_xyzs[i]
+                self._data.joint(f"peg_joint_{i}").qpos[
+                    3:
+                ] = lie.SO3.identity().wxyz.tolist()
+                self._data.mocap_pos[self._peg_target_mocap_ids[i]] = goal_peg_xyzs[i]
+                self._data.mocap_quat[self._peg_target_mocap_ids[i]] = (
+                    lie.SO3.identity().wxyz.tolist()
+                )
+            for i in range(self._num_lids):
+                self._data.joint(f"box_lid_joint_{i}").qpos[:3] = goal_lid_xyzs[i]
+                self._data.joint(f"box_lid_joint_{i}").qpos[
+                    3:
+                ] = lie.SO3.identity().wxyz.tolist()
+                self._data.mocap_pos[self._lid_target_mocap_ids[i]] = goal_lid_xyzs[i]
+                self._data.mocap_quat[self._lid_target_mocap_ids[i]] = (
+                    lie.SO3.identity().wxyz.tolist()
+                )
             self._cur_button_states = goal_button_states.copy()
             self._apply_button_states()
-            self._data.joint("faucet_knob").qpos[0] = goal_faucet_pos
-            self._data.joint("window_slide").qpos[0] = goal_window_pos
+            self._data.joint("faucet_knob").qpos[0] = goal_faucet_yaw
             mujoco.mj_forward(self._model, self._data)
 
             # Do a few random steps to make the scene stable.
@@ -336,21 +434,41 @@ class SceneEnv2(ManipSpaceEnv):
                 self._data.mocap_quat[self._cube_target_mocap_ids[i]] = (
                     lie.SO3.identity().wxyz.tolist()
                 )
+            for i in range(self._num_pegs):
+                obj_pos = init_peg_xyzs[i].copy()
+                obj_pos[:2] += self.np_random.uniform(-0.01, 0.01, size=2)
+                self._data.joint(f"peg_joint_{i}").qpos[:3] = obj_pos
+                yaw = self.np_random.uniform(0, 2 * np.pi)
+                obj_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+                self._data.joint(f"peg_joint_{i}").qpos[3:] = obj_ori
+                self._data.mocap_pos[self._peg_target_mocap_ids[i]] = goal_peg_xyzs[i]
+                self._data.mocap_quat[self._peg_target_mocap_ids[i]] = (
+                    lie.SO3.identity().wxyz.tolist()
+                )
+            for i in range(self._num_lids):
+                obj_pos = init_lid_xyzs[i].copy()
+                obj_pos[:2] += self.np_random.uniform(-0.01, 0.01, size=2)
+                self._data.joint(f"box_lid_joint_{i}").qpos[:3] = obj_pos
+                yaw = self.np_random.uniform(0, 2 * np.pi)
+                obj_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+                self._data.joint(f"box_lid_joint_{i}").qpos[3:] = obj_ori
+                self._data.mocap_pos[self._lid_target_mocap_ids[i]] = goal_lid_xyzs[i]
+                self._data.mocap_quat[self._lid_target_mocap_ids[i]] = (
+                    lie.SO3.identity().wxyz.tolist()
+                )
             # Set the button states.
             self._cur_button_states = init_button_states.copy()
             self._target_button_states = goal_button_states.copy()
             self._apply_button_states()
-            # Randomize the faucet and window positions slightly.
+            # Randomize the faucet position slightly.
             self._data.joint("faucet_knob").qpos[0] = np.clip(
-                init_faucet_pos + self.np_random.uniform(-0.05, 0.05), -1.57, 1.57
+                init_faucet_yaw + self.np_random.uniform(-0.05, 0.05), -1.57, 1.57
             )
-            self._model.site("faucet_handle_center_target").pos[0] = goal_faucet_pos
-            self._target_faucet_pos = goal_faucet_pos
-            self._data.joint("window_slide").qpos[0] = np.clip(
-                init_window_pos + self.np_random.uniform(-0.01, 0.01), 0, 0.2
-            )
-            self._model.site("window_handle_center_target").pos[0] = goal_window_pos
-            self._target_window_pos = goal_window_pos
+            # Set target site LOCAL position so its world matches the handle at the goal angle.
+            # The handle rotates around Z at radius 0.175 from the faucet axis.
+            self._model.site("faucet_handle_center_target").pos[0] = 0.175 * np.sin(goal_faucet_yaw)
+            self._model.site("faucet_handle_center_target").pos[1] = 0.175 * (1 - np.cos(goal_faucet_yaw))
+            self._target_faucet_yaw = goal_faucet_yaw
 
         # Forward kinematics to update site positions.
         self.pre_step()
@@ -383,12 +501,13 @@ class SceneEnv2(ManipSpaceEnv):
         p_cube = 1.0 if len(available_blocks) > 0 else 0.0
         p_button = 1.0
         p_faucet = 1.0
-        p_window = 0.25 if self._cur_button_states[1] == 0 else 1.0
-        probs = np.array([p_cube, p_button, p_faucet, p_window])
+        p_peg = 1.0
+        p_lid = 1.0
+        probs = np.array([p_cube, p_button, p_faucet, p_peg, p_lid])
         probs /= probs.sum()
 
         self._target_task = self.np_random.choice(
-            ["cube", "button", "faucet", "window"], p=probs
+            ["cube", "button", "faucet", "peg", "lid"], p=probs
         )
 
         if self._target_task == "cube":
@@ -465,21 +584,33 @@ class SceneEnv2(ManipSpaceEnv):
         elif self._target_task == "faucet":
             # Set target faucet position.
             if self._is_faucet_closed():  # Faucet closed.
-                self._target_faucet_pos = 1.57
+                self._target_faucet_yaw = 1.57
             else:  # Faucet open.
-                self._target_faucet_pos = -1.57
-            self._model.site("faucet_handle_center_target").pos[
-                0
-            ] = self._target_faucet_pos
-        elif self._target_task == "window":
-            # Set target window position.
-            if self._is_window_closed():  # Window closed.
-                self._target_window_pos = 0.2
-            else:  # Window open.
-                self._target_window_pos = 0.0
-            self._model.site("window_handle_center_target").pos[
-                0
-            ] = self._target_window_pos
+                self._target_faucet_yaw = -1.57
+            self._model.site("faucet_handle_center_target").pos[0] = 0.175 * np.sin(self._target_faucet_yaw)
+            self._model.site("faucet_handle_center_target").pos[1] = 0.175 * (1 - np.cos(self._target_faucet_yaw))
+        elif self._target_task == "peg":
+            # Set target peg position.
+            xy = self.np_random.uniform(*self._target_sampling_bounds)
+            tar_pos = (*xy, 0.02)
+            yaw = self.np_random.uniform(0, 2 * np.pi)
+            tar_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+            self._data.mocap_pos[self._peg_target_mocap_ids[0]] = tar_pos
+            self._data.mocap_quat[self._peg_target_mocap_ids[0]] = tar_ori
+            if self._visualize_info:
+                for gid in self._peg_target_geom_ids_list[0]:
+                    self._model.geom(gid).rgba[3] = 0.2
+        elif self._target_task == "lid":
+            # Set target lid position.
+            xy = self.np_random.uniform(*self._target_sampling_bounds)
+            tar_pos = (*xy, 0.02)
+            yaw = self.np_random.uniform(0, 2 * np.pi)
+            tar_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+            self._data.mocap_pos[self._lid_target_mocap_ids[0]] = tar_pos
+            self._data.mocap_quat[self._lid_target_mocap_ids[0]] = tar_ori
+            if self._visualize_info:
+                for gid in self._lid_target_geom_ids_list[0]:
+                    self._model.geom(gid).rgba[3] = 0.2
 
         mujoco.mj_kinematics(self._model, self._data)
 
@@ -487,19 +618,10 @@ class SceneEnv2(ManipSpaceEnv):
             return self.compute_observation(), self.get_reset_info()
 
     def _is_faucet_closed(self):
-        return self._data.joint("faucet_knob").qpos[0] <= -0.3
-
-    def _is_window_closed(self):
-        return self._data.joint("window_slide").qpos[0] <= 0.1
+        return self._data.joint("faucet_knob").qpos[0] <= -0.08
 
     def _faucet_state(self) -> int:
         if self._is_faucet_closed():
-            return 1  # "closed"
-        else:
-            return 0  # "open"
-
-    def _window_state(self) -> int:
-        if self._is_window_closed():
             return 1  # "closed"
         else:
             return 0  # "open"
@@ -535,16 +657,26 @@ class SceneEnv2(ManipSpaceEnv):
             (self._cur_button_states[i] == self._target_button_states[i])
             for i in range(self._num_buttons)
         ]
-        drawer_success = (
-            np.abs(self._data.joint("faucet_knob").qpos[0] - self._target_faucet_pos)
+        faucet_success = (
+            np.abs(self._data.joint("faucet_knob").qpos[0] - self._target_faucet_yaw)
             <= 0.15
         )
-        window_success = (
-            np.abs(self._data.joint("window_slide").qpos[0] - self._target_window_pos)
+        peg_success = (
+            np.linalg.norm(
+                self._data.joint("peg_joint_0").qpos[:3]
+                - self._data.mocap_pos[self._peg_target_mocap_ids[0]]
+            )
+            <= 0.04
+        )
+        lid_success = (
+            np.linalg.norm(
+                self._data.joint("box_lid_joint_0").qpos[:3]
+                - self._data.mocap_pos[self._lid_target_mocap_ids[0]]
+            )
             <= 0.04
         )
 
-        return cube_successes, button_successes, drawer_success, window_success
+        return cube_successes, button_successes, faucet_success, peg_success, lid_success
 
     def post_step(self):
         # Check numerical stability.
@@ -590,22 +722,24 @@ class SceneEnv2(ManipSpaceEnv):
         self._apply_button_states()
 
         # Evaluate successes.
-        cube_successes, button_successes, drawer_success, window_success = (
+        cube_successes, button_successes, faucet_success, peg_success, lid_success = (
             self._compute_successes()
         )
         if self._mode == "data_collection":
             self._success = {
                 "cube": cube_successes[self._target_block],
                 "button": button_successes[self._target_button],
-                "faucet": drawer_success,
-                "window": window_success,
+                "faucet": faucet_success,
+                "peg": peg_success,
+                "lid": lid_success,
             }[self._target_task]
         else:
             self._success = (
                 all(cube_successes)
                 and all(button_successes)
-                and drawer_success
-                and window_success
+                and faucet_success
+                and peg_success
+                and lid_success
             )
 
         # Adjust the colors of the cubes based on success.
@@ -679,25 +813,45 @@ class SceneEnv2(ManipSpaceEnv):
             ).wxyz.copy()
         )
 
-        # Window states.
-        ob_info["privileged_window_pos"] = self._data.joint("window_slide").qpos.copy()
-        ob_info["privileged_window_vel"] = self._data.joint("window_slide").qvel.copy()
-        ob_info["privileged_window_handle_pos"] = self._data.site_xpos[
-            self._window_site_id
-        ].copy()
-        ob_info["privileged_window_handle_state"] = self._window_state()
-        ob_info["privileged_window_handle_yaw"] = np.array(
-            [
-                lie.SO3.from_matrix(
-                    self._data.site_xmat[self._window_site_id].reshape(3, 3)
-                ).compute_yaw_radians()
-            ]
-        )
-        ob_info["privileged_window_handle_quat"] = np.array(
-            lie.SO3.from_matrix(
-                self._data.site_xmat[self._window_site_id].reshape(3, 3)
-            ).wxyz.copy()
-        )
+        # Peg states.
+        for i in range(self._num_pegs):
+            ob_info[f"privileged_peg_{i}_pos"] = (
+                self._data.joint(f"peg_joint_{i}").qpos[:3].copy()
+            )
+            ob_info[f"privileged_peg_{i}_quat"] = (
+                self._data.joint(f"peg_joint_{i}").qpos[3:].copy()
+            )
+            ob_info[f"privileged_peg_{i}_yaw"] = np.array(
+                [
+                    lie.SO3(
+                        wxyz=self._data.joint(f"peg_joint_{i}").qpos[3:]
+                    ).compute_yaw_radians()
+                ]
+            )
+            ob_info[f"privileged_peg_{i}_state"] = self._block_state(i)
+            ob_info[f"privileged_peg_{i}_handle_pos"] = self._data.site_xpos[
+                self._peg_handle_site_ids[i]
+            ].copy()
+
+        # Lid states.
+        for i in range(self._num_lids):
+            ob_info[f"privileged_lid_{i}_pos"] = (
+                self._data.joint(f"box_lid_joint_{i}").qpos[:3].copy()
+            )
+            ob_info[f"privileged_lid_{i}_quat"] = (
+                self._data.joint(f"box_lid_joint_{i}").qpos[3:].copy()
+            )
+            ob_info[f"privileged_lid_{i}_yaw"] = np.array(
+                [
+                    lie.SO3(
+                        wxyz=self._data.joint(f"box_lid_joint_{i}").qpos[3:]
+                    ).compute_yaw_radians()
+                ]
+            )
+            ob_info[f"privileged_lid_{i}_state"] = self._block_state(i)
+            ob_info[f"privileged_lid_{i}_handle_pos"] = self._data.site_xpos[
+                self._lid_handle_site_ids[i]
+            ].copy()
 
         if self._mode == "data_collection":
             ob_info["privileged_target_task"] = self._target_task
@@ -731,18 +885,44 @@ class SceneEnv2(ManipSpaceEnv):
 
             # Target faucet info.
             ob_info["privileged_target_faucet_pos"] = np.array(
-                [self._target_faucet_pos]
+                [self._target_faucet_yaw]
             )
             ob_info["privileged_target_faucet_handle_pos"] = self._data.site_xpos[
                 self._faucet_target_site_id
             ].copy()
 
-            # Target window info.
-            ob_info["privileged_target_window_pos"] = np.array(
-                [self._target_window_pos]
+            # Target peg info.
+            target_peg_mocap_id = self._peg_target_mocap_ids[self._target_peg]
+            ob_info["privileged_target_peg"] = self._target_peg
+            ob_info["privileged_target_peg_pos"] = self._data.mocap_pos[
+                target_peg_mocap_id
+            ].copy()
+            ob_info["privileged_target_peg_yaw"] = np.array(
+                [
+                    lie.SO3(
+                        wxyz=self._data.mocap_quat[target_peg_mocap_id]
+                    ).compute_yaw_radians()
+                ]
             )
-            ob_info["privileged_target_window_handle_pos"] = self._data.site_xpos[
-                self._window_target_site_id
+            ob_info["privileged_target_peg_quat"] = self._data.mocap_quat[
+                target_peg_mocap_id
+            ].copy()
+
+            # Target lid info.
+            target_lid_mocap_id = self._lid_target_mocap_ids[self._target_lid]
+            ob_info["privileged_target_lid"] = self._target_lid
+            ob_info["privileged_target_lid_pos"] = self._data.mocap_pos[
+                target_lid_mocap_id
+            ].copy()
+            ob_info["privileged_target_lid_yaw"] = np.array(
+                [
+                    lie.SO3(
+                        wxyz=self._data.mocap_quat[target_lid_mocap_id]
+                    ).compute_yaw_radians()
+                ]
+            )
+            ob_info["privileged_target_lid_quat"] = self._data.mocap_quat[
+                target_lid_mocap_id
             ].copy()
 
         ob_info["prev_button_states"] = self._prev_button_states.copy()
@@ -757,7 +937,6 @@ class SceneEnv2(ManipSpaceEnv):
             gripper_scaler = 3.0
             button_scaler = 120.0
             drawer_scaler = 4.0
-            window_scaler = 15.0
 
             ob_info = self.compute_ob_info()
             ob = [
@@ -790,12 +969,30 @@ class SceneEnv2(ManipSpaceEnv):
                         ob_info[f"privileged_button_{i}_vel"],
                     ]
                 )
+            for i in range(self._num_pegs):
+                ob.extend(
+                    [
+                        (ob_info[f"privileged_peg_{i}_pos"] - xyz_center)
+                        * xyz_scaler,
+                        ob_info[f"privileged_peg_{i}_quat"],
+                        np.cos(ob_info[f"privileged_peg_{i}_yaw"]),
+                        np.sin(ob_info[f"privileged_peg_{i}_yaw"]),
+                    ]
+                )
+            for i in range(self._num_lids):
+                ob.extend(
+                    [
+                        (ob_info[f"privileged_lid_{i}_pos"] - xyz_center)
+                        * xyz_scaler,
+                        ob_info[f"privileged_lid_{i}_quat"],
+                        np.cos(ob_info[f"privileged_lid_{i}_yaw"]),
+                        np.sin(ob_info[f"privileged_lid_{i}_yaw"]),
+                    ]
+                )
             ob.extend(
                 [
                     ob_info["privileged_faucet_pos"] * drawer_scaler,
                     ob_info["privileged_faucet_vel"],
-                    ob_info["privileged_window_pos"] * window_scaler,
-                    ob_info["privileged_window_vel"],
                 ]
             )
 
@@ -806,19 +1003,17 @@ class SceneEnv2(ManipSpaceEnv):
         xyz_center = np.array([0.425, 0.0, 0.0])
         xyz_scaler = 10.0
         drawer_scaler = 4.0
-        window_scaler = 15.0
 
         ob_info = self.compute_ob_info()
         ob = []
         for i in range(self._num_cubes):
             ob.append((ob_info[f"privileged_block_{i}_pos"] - xyz_center) * xyz_scaler)
+        for i in range(self._num_pegs):
+            ob.append((ob_info[f"privileged_peg_{i}_pos"] - xyz_center) * xyz_scaler)
+        for i in range(self._num_lids):
+            ob.append((ob_info[f"privileged_lid_{i}_pos"] - xyz_center) * xyz_scaler)
         ob.append(self._cur_button_states.astype(np.float64))
-        ob.extend(
-            [
-                ob_info["privileged_faucet_pos"] * drawer_scaler,
-                ob_info["privileged_window_pos"] * window_scaler,
-            ]
-        )
+        ob.append(ob_info["privileged_faucet_pos"] * drawer_scaler)
 
         return np.concatenate(ob)
 
@@ -827,9 +1022,9 @@ class SceneEnv2(ManipSpaceEnv):
             return super().compute_reward()
 
         # Compute the reward based on the task.
-        cube_successes, button_successes, drawer_success, window_success = (
+        cube_successes, button_successes, faucet_success, peg_success, lid_success = (
             self._compute_successes()
         )
-        successes = cube_successes + button_successes + [drawer_success, window_success]
+        successes = cube_successes + button_successes + [faucet_success, peg_success, lid_success]
         reward = float(sum(successes) - len(successes))
         return reward

@@ -25,7 +25,7 @@ for i in range(m.njnt):
 print("\n" + "=" * 50)
 print("TASK TARGETS")
 print("=" * 50)
-print(f"  target_faucet_pos = {env._target_faucet_pos:.3f}")
+print(f"  target_faucet_pos = {env._target_faucet_yaw:.3f}")
 print(f"  task_name          = {env.cur_task_info['task_name']}")
 print("\nFollowing oracle plan...\n")
 
@@ -33,7 +33,7 @@ print("\nFollowing oracle plan...\n")
 env.launch_passive_viewer()
 
 for step in range(2000):
-    time.sleep(0.02)
+    time.sleep(0.05)
     if faucet_oracle.done:
         print(f"\n✅ Oracle finished at step {step}")
         obs, info = env.reset()
@@ -43,9 +43,12 @@ for step in range(2000):
     obs, reward, terminated, truncated, info = env.step(action)
     env.sync_passive_viewer()
 
+    goal_reached = (
+        abs(env._data.joint("faucet_knob").qpos[0] - env._target_faucet_yaw) <= 0.15
+    )
     if step % 100 == 0:
         knob_angle = env._data.joint("faucet_knob").qpos[0]
-        print(f"Step {step}: reward={reward:.3f}, knob={knob_angle:.2f}")
+        print(f"Step {step}: reward={reward:.3f}, knob={knob_angle:.2f}, goal_reached={goal_reached}")
 
 env.close_passive_viewer()
 env.close()

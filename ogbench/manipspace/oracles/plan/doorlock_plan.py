@@ -8,7 +8,6 @@ class DoorlockPlanOracle(PlanOracle):
         super().__init__(*args, **kwargs)
 
     def compute_keyframes(self, plan_input):
-        # Poses.
         poses = {}
         doorlock_initial = self.shortest_yaw(
             eff_yaw=self.get_yaw(plan_input["effector_initial"]),
@@ -22,40 +21,73 @@ class DoorlockPlanOracle(PlanOracle):
             translation=plan_input["doorlock_goal"].translation(),
             n=2,
         )
-        poses["initial"] = plan_input["effector_initial"]
-        poses["approach"] = self.above(doorlock_initial, 0.08)
-        poses["grasp_start"] = doorlock_initial
-        poses["grasp_end"] = doorlock_initial
-        poses["move"] = doorlock_goal
-        poses["release"] = doorlock_goal
-        poses["clearance"] = self.above(doorlock_goal, 0.08)
-        poses["final"] = plan_input["effector_goal"]
 
-        # Times.
-        times = {}
-        times["initial"] = 0.0
-        times["approach"] = times["initial"] + self._dt
-        times["grasp_start"] = times["approach"] + self._dt * 0.5
-        times["grasp_end"] = times["grasp_start"] + self._dt * 0.5
-        times["move"] = times["grasp_end"] + self._dt * 0.5
-        times["release"] = times["move"] + self._dt * 0.5
-        times["clearance"] = times["release"] + self._dt * 0.5
-        times["final"] = times["clearance"] + self._dt
-        for time in times.keys():
-            if time != "initial":
-                times[time] += np.random.uniform(-1, 1) * self._dt * 0.1
+        # Detect direction: opening (lid goes up) vs closing (lid goes down).
+        is_closing = doorlock_goal.translation()[2] < doorlock_initial.translation()[2]
 
-        # Grasps.
-        grasps = {}
-        g = 0.0
-        for name in times.keys():
-            if name in {"grasp_end", "release"}:
-                g = 1.0 - g
-            grasps[name] = g
+        if is_closing:
+            # Push down with open gripper.
+            poses["initial"] = plan_input["effector_initial"]
+            poses["approach"] = self.above(doorlock_initial, 0.06)
+            poses["push"] = doorlock_goal
+            poses["retreat"] = self.above(doorlock_goal, 0.10)
+            poses["final"] = plan_input["effector_goal"]
+
+            times = {}
+            times["initial"] = 0.0
+            times["approach"] = times["initial"] + self._dt
+            times["push"] = times["approach"] + self._dt * 0.5
+            times["retreat"] = times["push"] + self._dt * 0.5
+            times["final"] = times["retreat"] + self._dt
+            for time in times.keys():
+                if time != "initial":
+                    times[time] += np.random.uniform(-1, 1) * self._dt * 0.1
+
+            grasps = {}
+            for name in times.keys():
+                grasps[name] = 0.0  # Gripper open throughout — just push
+
+        else:
+            # Opening: grasp handle and pull up.
+            poses["initial"] = plan_input["effector_initial"]
+            poses["approach"] = self.above(doorlock_initial, 0.06)
+            poses["grasp_start"] = doorlock_initial
+            poses["grasp_end"] = doorlock_initial
+            poses["pull"] = self.above(doorlock_goal, 0.08)
+            poses["release"] = self.above(doorlock_goal, 0.08)
+            poses["clearance"] = self.above(doorlock_goal, 0.12)
+            poses["final"] = plan_input["effector_goal"]
+
+            times = {}
+            times["initial"] = 0.0
+            times["approach"] = times["initial"] + self._dt
+            times["grasp_start"] = times["approach"] + self._dt * 0.5
+            times["grasp_end"] = times["grasp_start"] + self._dt * 0.5
+            times["pull"] = times["grasp_end"] + self._dt * 0.5
+            times["release"] = times["pull"] + self._dt * 0.5
+            times["clearance"] = times["release"] + self._dt * 0.5
+            times["final"] = times["clearance"] + self._dt
+            for time in times.keys():
+                if time != "initial":
+                    times[time] += np.random.uniform(-1, 1) * self._dt * 0.1
+
+            grasps = {}
+            g = 0.0
+            for name in times.keys():
+                if name in {"grasp_end", "release"}:
+                    g = 1.0 - g
+                grasps[name] = g
 
         return times, poses, grasps
 
     def reset(self, ob, info):
+        if "privileged_target_doorlock_handle_pos" in info:
+            target_handle_pos = info["privileged_target_doorlock_handle_pos"]
+        else:
+            target_handle_pos = self._env.unwrapped._data.site_xpos[
+                self._env.unwrapped._doorlock_target_site_id
+            ].copy()
+
         plan_input = {
             "effector_initial": self.to_pose(
                 pos=info["proprio_effector_pos"],
@@ -70,7 +102,7 @@ class DoorlockPlanOracle(PlanOracle):
                 yaw=info["privileged_doorlock_handle_yaw"][0],
             ),
             "doorlock_goal": self.to_pose(
-                pos=info["privileged_target_doorlock_handle_pos"],
+                pos=target_handle_pos,
                 yaw=info["privileged_doorlock_handle_yaw"][0],
             ),
         }

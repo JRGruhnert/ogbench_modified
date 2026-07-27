@@ -25,36 +25,36 @@
     </default>
 
     <asset>
-        <mesh file="metaworld/faucet/faucetbase.stl" name="faucetbase"/>
-        <mesh file="metaworld/faucet/faucethandle1.stl" name="faucethandle1"/>
-        <mesh file="metaworld/faucet/faucethead.stl" name="faucethead"/>
+        <mesh file="metaworld/faucet/faucetbase.stl" name="faucetbase" scale="0.6 0.6 0.6"/>
+        <mesh file="metaworld/faucet/faucethandle1.stl" name="faucethandle1" scale="0.6 0.6 0.6"/>
+        <mesh file="metaworld/faucet/faucethead.stl" name="faucethead" scale="0.6 0.6 0.6"/>
     </asset>
 
     <worldbody>
-        <body childclass="faucet_base" name="faucet_base" pos="0.3 -0.2 0.084">
-            <!-- Static base geoms -->
-            <geom material="faucet_body" mesh="faucetbase" pos="0 0 0.088"/>
-            <geom class="faucet_col" pos="0 0 0.009" size="0.046 0.009" type="cylinder"/>
-            <geom class="faucet_col" pos="0 0 0.061" size="0.017 0.044" type="cylinder"/>
+        <body childclass="faucet_base" name="faucet_base" pos="0.4 -0.2 0.0">
+            <!-- Static base geoms (scaled 0.6x) -->
+            <geom material="faucet_body" mesh="faucetbase" pos="0 0 0.053"/>
+            <geom class="faucet_col" pos="0 0 0.0054" size="0.0276 0.0054" type="cylinder"/>
+            <geom class="faucet_col" pos="0 0 0.0366" size="0.0102 0.0264" type="cylinder"/>
 
             <!-- Virtual handle for target visualization -->
-            <body name="faucet_link_virtual" pos="0 0 0.124">
-                <body name="faucet_link_virtual_handle" pos="0 -0.175 0">
+            <body name="faucet_link_virtual" pos="0 0 0.0744">
+                <body name="faucet_link_virtual_handle" pos="0 -0.105 0">
                     <site name="faucet_handle_center_target" pos="0 0 0.0001" group="5"/>
                 </body>
             </body>
 
             <!-- Movable knob body -->
-            <body name="faucet_link" pos="0 0 0.124">
-                <site name="faucet_handle_center" pos="0 -0.175 0" group="5"/>
+            <body name="faucet_link" pos="0 0 0.0744">
+                <site name="faucet_handle_center" pos="0 -0.105 0" group="5"/>
                 <joint name="faucet_knob" type="hinge" range="-1.57 1.57" axis="0 0 1"/>
-                <geom material="faucet_body" euler="1.57 0 0" mesh="faucethandle1" pos="0 -0.06 0.001"/>
-                <geom material="faucet_body" mesh="faucethead" pos="0 0 0.001"/>
-                <geom material="faucet_handle" euler="1.57 0 0" pos="0 -0.12 0.001" size="0.017 0.055" type="capsule" name="faucet_handle_geom"/>
+                <geom material="faucet_body" euler="1.57 0 0" mesh="faucethandle1" pos="0 -0.036 0.0006"/>
+                <geom material="faucet_body" mesh="faucethead" pos="0 0 0.0006"/>
+                <geom material="faucet_handle" euler="1.57 0 0" pos="0 -0.072 0.0006" size="0.0102 0.033" type="capsule" name="faucet_handle_geom"/>
 
-                <geom class="faucet_col" euler="1.57 0 0" pos="0 -0.05 0.001" size="0.012 0.021" type="cylinder"/>
-                <geom class="faucet_col" euler="1.57 0 0" pos="0 -0.12 0.001" size="0.017 0.055" type="capsule"/>
-                <geom class="faucet_col" pos="0 0 0.001" size="0.032 0.02" type="cylinder"/>
+                <geom class="faucet_col" euler="1.57 0 0" pos="0 -0.03 0.0006" size="0.0072 0.0126" type="cylinder"/>
+                <geom class="faucet_col" euler="1.57 0 0" pos="0 -0.072 0.0006" size="0.0102 0.033" type="capsule"/>
+                <geom class="faucet_col" pos="0 0 0.0006" size="0.0192 0.012" type="cylinder"/>
             </body>
         </body>
     </worldbody>

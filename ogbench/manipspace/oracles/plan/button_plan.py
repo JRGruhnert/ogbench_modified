@@ -46,6 +46,15 @@ class ButtonPlanOracle(PlanOracle):
         return times, poses, grasps
 
     def reset(self, ob, info):
+        if "privileged_target_button_top_pos" in info:
+            target_button_top_pos = info["privileged_target_button_top_pos"]
+        else:
+            # In task mode, read from the target button's site
+            target_button_idx = 0
+            target_button_top_pos = self._env.unwrapped._data.site_xpos[
+                self._env.unwrapped._button_site_ids[target_button_idx]
+            ].copy()
+
         plan_input = {
             "effector_initial": self.to_pose(
                 pos=info["proprio_effector_pos"],
@@ -56,8 +65,8 @@ class ButtonPlanOracle(PlanOracle):
                 yaw=np.random.uniform(-np.pi, np.pi),
             ),
             "button": self.to_pose(
-                pos=info["privileged_target_button_top_pos"],
-                yaw=info["privileged_target_button_top_pos"][0],
+                pos=target_button_top_pos,
+                yaw=target_button_top_pos[0],
             ),
         }
 

@@ -115,6 +115,52 @@ register(
 )
 
 register(
+    id="visual-scene1",
+    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv1",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **visual_dict,
+    ),
+)
+register(
+    id="visual-scene2",
+    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv2",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **visual_dict,
+    ),
+)
+register(
+    id="visual-scene3",
+    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv3",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **visual_dict,
+    ),
+)
+register(
+    id="visual-scene4",
+    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv4",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **visual_dict,
+    ),
+)
+register(
+    id="visual-scene5",
+    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv5",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **visual_dict,
+    ),
+)
+
+register(
     id="puzzle-3x3-v0",
     entry_point="ogbench.manipspace.envs.puzzle_env:PuzzleEnv",
     max_episode_steps=500,

@@ -169,6 +169,9 @@ class SceneEnv(ManipSpaceEnv):
         for i in range(self._num_buttons):
             self._button_geoms_list.append([button_mjcf.find("geom", f"btngeom_{i}")])
 
+        self.add_cameras(arena_mjcf)
+
+    def add_cameras(self, arena_mjcf):
         # Add cameras.
         cameras = {
             "front": {

@@ -41,6 +41,34 @@ class PlanOracle:
             @ pose
         )
 
+    def add_dwell(self, name, prev_name, times, poses, duration):
+        """Add a dwell keyframe that holds at the previous pose for a given duration.
+
+        Args:
+            name: Name for the new dwell keyframe.
+            prev_name: Name of the keyframe to dwell at (copies its pose).
+            times: Times dict to add the dwell time to.
+            poses: Poses dict to add the dwell pose to.
+            duration: How long to dwell (in seconds).
+        """
+        poses[name] = poses[prev_name]
+        times[name] = times[prev_name] + duration
+
+    def add_neutral_yaw_prephase(self, effector_initial, times, poses):
+        """Insert a keyframe that rotates the effector to yaw=0 before the main plan."""
+        neutral_pose = self.to_pose(
+            pos=effector_initial.translation(),
+            yaw=0.0,
+        )
+        shift = self._dt * 0.5
+        # Shift all times except initial to make room.
+        for key in times:
+            if key != "initial":
+                times[key] += shift
+        # Insert neutral yaw keyframe right after initial.
+        times["neutral"] = times["initial"] + shift
+        poses["neutral"] = neutral_pose
+
     def to_pose(self, pos, yaw):
         return lie.SE3.from_rotation_and_translation(
             rotation=lie.SO3.from_z_radians(yaw),

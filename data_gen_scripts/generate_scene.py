@@ -51,7 +51,6 @@ def main(_):
 
     # Initialize oracles.
     oracle_type = "plan" if FLAGS.dataset_type == "play" else "markov"
-    has_button_states = hasattr(env.unwrapped, "_cur_button_states")
     if "scene1" in FLAGS.env_name:
         if oracle_type == "markov":
             agents = {

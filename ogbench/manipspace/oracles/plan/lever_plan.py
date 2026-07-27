@@ -49,11 +49,12 @@ class LeverPlanOracle(PlanOracle):
         return times, poses, grasps
 
     def reset(self, ob, info):
+        env = self._env.unwrapped
         if "privileged_target_lever_handle_pos" in info:
             target_handle_pos = info["privileged_target_lever_handle_pos"]
         else:
-            target_handle_pos = self._env.unwrapped._data.site_xpos[
-                self._env.unwrapped._lever_target_site_id
+            target_handle_pos = env._data.site_xpos[
+                env.get_object("lever")._target_site_id
             ].copy()
 
         plan_input = {
@@ -62,7 +63,7 @@ class LeverPlanOracle(PlanOracle):
                 yaw=info["proprio_effector_yaw"][0],
             ),
             "effector_goal": self.to_pose(
-                pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
+                pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
             "lever_initial": self.to_pose(

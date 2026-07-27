@@ -78,14 +78,14 @@ class FaucetPlanOracle(PlanOracle):
         return times, poses, grasps
 
     def reset(self, ob, info):
+        env = self._env.unwrapped
         if "privileged_target_faucet_handle_pos" in info:
             target_handle_pos = info["privileged_target_faucet_handle_pos"]
             target_faucet_yaw = info["privileged_target_faucet_pos"][0]
         else:
-            target_handle_pos = self._env._data.site_xpos[
-                self._env.unwrapped._faucet_target_site_id
-            ].copy()
-            target_faucet_yaw = self._env.unwrapped._target_faucet_yaw
+            faucet = env.get_object("faucet")
+            target_handle_pos = env._data.site_xpos[faucet._target_site_id].copy()
+            target_faucet_yaw = faucet._target_val
 
         faucet_center = self._env._data.xpos[
             self._env._data.body("faucet_link").id
@@ -97,7 +97,7 @@ class FaucetPlanOracle(PlanOracle):
                 yaw=info["proprio_effector_yaw"][0],
             ),
             "effector_goal": self.to_pose(
-                pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
+                pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
             "faucet_initial": self.to_pose(

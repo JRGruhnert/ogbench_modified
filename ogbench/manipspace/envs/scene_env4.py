@@ -9,107 +9,46 @@ from ogbench.manipspace.envs.scene_env_base import SceneEnvBase
 
 
 class SceneEnv4(SceneEnvBase):
-    """Same scene as SceneEnv1: drawer + 2 buttons + window + 1 cube."""
+    """Same objects as SceneEnv1: drawer + 2 buttons + window + 1 cube."""
 
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
+        cube_bounds = np.asarray([[0.3, -0.07], [0.45, 0.18]])
+        btn = ButtonDoubleObject(locks={0: "drawer_slide", 1: "window_slide"})
+        drawer = DrawerObject(pos=(0.33, -0.42, 0.084), euler=(0, 0, 3.14), locked_by=0, button=btn)
         self._objects = [
-            CubeObject(count=1),
-            ButtonDoubleObject(),
-            DrawerObject(pos=(0.33, -0.42, 0.084), euler=(0, 0, 3.14)),
-            WindowObject(pos=(0.3, 0.3, 0.202)),
+            CubeObject(sampling_bounds=cube_bounds, containers=[drawer]),
+            btn,
+            drawer,
+            WindowObject(pos=(0.3, 0.3, 0.202), locked_by=1, button=btn),
         ]
-        self._button_locks = {0: "drawer_slide", 1: "window_slide"}
-
         super().__init__(env_type, permute_blocks=permute_blocks, *args, **kwargs)
 
-    def _configure_scene(self):
-        self._object_sampling_bounds = np.asarray([[0.3, -0.07], [0.45, 0.18]])
-        self._target_sampling_bounds = self._object_sampling_bounds
-        self._drawer_center = np.array([0.33, -0.24, 0.066])
-        self._cube_colors = np.array([self._colors["red"], self._colors["blue"]])
-        self._cube_success_colors = np.array(
-            [self._colors["lightred"], self._colors["lightblue"]]
-        )
-
-    # ------------------------------------------------------------------
-    # Task definitions
-    # ------------------------------------------------------------------
     def set_tasks(self):
         self.task_infos = [
             dict(
                 task_name="task1_open",
-                init=dict(
-                    block_xyzs=np.array([[0.35, 0.05, 0.02]]),
-                    button_states=np.array([1, 1]),
-                    drawer_pos=0.0,
-                    window_pos=0.0,
-                ),
-                goal=dict(
-                    block_xyzs=np.array([[0.35, 0.05, 0.02]]),
-                    button_states=np.array([1, 1]),
-                    drawer_pos=-0.16,
-                    window_pos=0.2,
-                ),
+                init=dict(block_xyzs=np.array([[0.35, 0.05, 0.02]]), button_states=np.array([1, 1]), drawer_pos=0.0, window_pos=0.0),
+                goal=dict(block_xyzs=np.array([[0.35, 0.05, 0.02]]), button_states=np.array([1, 1]), drawer_pos=-0.16, window_pos=0.2),
             ),
             dict(
                 task_name="task2_unlock_and_lock",
-                init=dict(
-                    block_xyzs=np.array([[0.35, -0.05, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    drawer_pos=-0.16,
-                    window_pos=0.2,
-                ),
-                goal=dict(
-                    block_xyzs=np.array([[0.35, -0.05, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    drawer_pos=0.0,
-                    window_pos=0.0,
-                ),
+                init=dict(block_xyzs=np.array([[0.35, -0.05, 0.02]]), button_states=np.array([0, 0]), drawer_pos=-0.16, window_pos=0.2),
+                goal=dict(block_xyzs=np.array([[0.35, -0.05, 0.02]]), button_states=np.array([0, 0]), drawer_pos=0.0, window_pos=0.0),
             ),
             dict(
                 task_name="task3_rearrange_medium",
-                init=dict(
-                    block_xyzs=np.array([[0.4, -0.05, 0.02]]),
-                    button_states=np.array([1, 0]),
-                    drawer_pos=0.0,
-                    window_pos=0.2,
-                ),
-                goal=dict(
-                    block_xyzs=np.array([[0.4, 0.15, 0.02]]),
-                    button_states=np.array([1, 1]),
-                    drawer_pos=-0.16,
-                    window_pos=0.0,
-                ),
+                init=dict(block_xyzs=np.array([[0.4, -0.05, 0.02]]), button_states=np.array([1, 0]), drawer_pos=0.0, window_pos=0.2),
+                goal=dict(block_xyzs=np.array([[0.4, 0.15, 0.02]]), button_states=np.array([1, 1]), drawer_pos=-0.16, window_pos=0.0),
             ),
             dict(
                 task_name="task4_put_in_drawer",
-                init=dict(
-                    block_xyzs=np.array([[0.35, 0.05, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    drawer_pos=0.0,
-                    window_pos=0.0,
-                ),
-                goal=dict(
-                    block_xyzs=np.array([[0.33, -0.356, 0.065986]]),
-                    button_states=np.array([1, 0]),
-                    drawer_pos=0.0,
-                    window_pos=0.0,
-                ),
+                init=dict(block_xyzs=np.array([[0.35, 0.05, 0.02]]), button_states=np.array([0, 0]), drawer_pos=0.0, window_pos=0.0),
+                goal=dict(block_xyzs=np.array([[0.33, -0.356, 0.065986]]), button_states=np.array([1, 0]), drawer_pos=0.0, window_pos=0.0),
             ),
             dict(
                 task_name="task5_rearrange_hard",
-                init=dict(
-                    block_xyzs=np.array([[0.35, 0.15, 0.02]]),
-                    button_states=np.array([0, 0]),
-                    drawer_pos=0.0,
-                    window_pos=0.0,
-                ),
-                goal=dict(
-                    block_xyzs=np.array([[0.33, -0.356, 0.065986]]),
-                    button_states=np.array([0, 0]),
-                    drawer_pos=0.0,
-                    window_pos=0.2,
-                ),
+                init=dict(block_xyzs=np.array([[0.35, 0.15, 0.02]]), button_states=np.array([0, 0]), drawer_pos=0.0, window_pos=0.0),
+                goal=dict(block_xyzs=np.array([[0.33, -0.356, 0.065986]]), button_states=np.array([0, 0]), drawer_pos=0.0, window_pos=0.2),
             ),
         ]
 

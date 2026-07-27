@@ -51,6 +51,3 @@ line-length = 120
 
 [tool.ruff.format]
 quote-style = "single"
-
-[tool.pyright]
-reportAttributeAccessIssue = false

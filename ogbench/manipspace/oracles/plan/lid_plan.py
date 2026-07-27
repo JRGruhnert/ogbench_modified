@@ -72,14 +72,13 @@ class LidPlanOracle(PlanOracle):
         return times, poses, grasps
 
     def reset(self, ob, info):
-        # Get target position — from info in data_collection mode, from model mocap in task mode.
+        env = self._env.unwrapped
         if "privileged_target_lid_pos" in info:
             target_pos = info["privileged_target_lid_pos"]
             target_yaw = info["privileged_target_lid_yaw"][0]
         else:
-            target_pos = self._env._data.mocap_pos[
-                self._env.unwrapped._lid_target_mocap_ids[0]
-            ].copy()
+            lid = env.get_object("lid")
+            target_pos = env._data.mocap_pos[lid._target_mocap_ids[0]].copy()
             target_yaw = 0.0
 
         plan_input = {
@@ -88,7 +87,7 @@ class LidPlanOracle(PlanOracle):
                 yaw=info["proprio_effector_yaw"][0],
             ),
             "effector_goal": self.to_pose(
-                pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
+                pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
             "lid_initial": self.to_pose(

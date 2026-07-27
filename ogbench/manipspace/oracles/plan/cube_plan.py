@@ -71,6 +71,7 @@ class CubePlanOracle(PlanOracle):
         return times, poses, grasps
 
     def reset(self, ob, info):
+        env = self._env.unwrapped
         if "privileged_target_block" in info:
             target_block = info["privileged_target_block"]
         else:
@@ -79,8 +80,9 @@ class CubePlanOracle(PlanOracle):
         if "privileged_target_block_pos" in info:
             target_block_pos = info["privileged_target_block_pos"]
         else:
-            target_block_pos = self._env.unwrapped._data.mocap_pos[
-                self._env.unwrapped._cube_target_mocap_ids[target_block]
+            cube = env.get_object("cube")
+            target_block_pos = env._data.mocap_pos[
+                cube._target_mocap_ids[target_block]
             ].copy()
         
         if "privileged_target_block_yaw" in info:
@@ -94,7 +96,7 @@ class CubePlanOracle(PlanOracle):
                 yaw=info["proprio_effector_yaw"][0],
             ),
             "effector_goal": self.to_pose(
-                pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
+                pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
             "block_initial": self.to_pose(

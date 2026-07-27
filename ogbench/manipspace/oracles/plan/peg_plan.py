@@ -69,14 +69,13 @@ class PegPlanOracle(PlanOracle):
         return times, poses, grasps
 
     def reset(self, ob, info):
-        # Get target position — from info in data_collection mode, from model mocap in task mode.
+        env = self._env.unwrapped
         if "privileged_target_peg_pos" in info:
             target_pos = info["privileged_target_peg_pos"]
             target_yaw = info["privileged_target_peg_yaw"][0]
         else:
-            target_pos = self._env._data.mocap_pos[
-                self._env.unwrapped._peg_target_mocap_ids[0]
-            ].copy()
+            peg = env.get_object("peg")
+            target_pos = env._data.mocap_pos[peg._target_mocap_ids[0]].copy()
             target_yaw = 0.0
 
         plan_input = {
@@ -85,7 +84,7 @@ class PegPlanOracle(PlanOracle):
                 yaw=info["proprio_effector_yaw"][0],
             ),
             "effector_goal": self.to_pose(
-                pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
+                pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
             "peg_initial": self.to_pose(

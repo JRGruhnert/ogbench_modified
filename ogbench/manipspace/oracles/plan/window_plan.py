@@ -50,11 +50,12 @@ class WindowPlanOracle(PlanOracle):
         return times, poses, grasps
 
     def reset(self, ob, info):
+        env = self._env.unwrapped
         if "privileged_target_window_handle_pos" in info:
             target_handle_pos = info["privileged_target_window_handle_pos"]
         else:
-            target_handle_pos = self._env.unwrapped._data.site_xpos[
-                self._env.unwrapped._window_target_site_id
+            target_handle_pos = env._data.site_xpos[
+                env.get_object("window")._target_site_id
             ].copy()
 
         plan_input = {
@@ -63,7 +64,7 @@ class WindowPlanOracle(PlanOracle):
                 yaw=info["proprio_effector_yaw"][0],
             ),
             "effector_goal": self.to_pose(
-                pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
+                pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
             "window_initial": self.to_pose(

@@ -4,14 +4,15 @@ from ogbench.manipspace.envs.scene_env1 import SceneEnv1
 from ogbench.manipspace.oracles.plan.faucet_plan import FaucetPlanOracle
 from ogbench.manipspace.oracles.plan.lid_plan import LidPlanOracle
 from ogbench.manipspace.oracles.plan.peg_plan import PegPlanOracle
-env = SceneEnv1(env_type="scene", mode="task")
+from ogbench.manipspace.oracles.plan.cube_plan import CubePlanOracle
+env = SceneEnv1(env_type="scene", mode="collection")
 #oracle = FaucetPlanOracle(env)
 #oracle = LidPlanOracle(env)
-oracle = PegPlanOracle(env)
+oracle = CubePlanOracle(env)
 
 obs, info = env.reset()
 oracle.reset(obs, info)
-
+print(info)
 env.launch_passive_viewer()
 
 for step in range(2000):

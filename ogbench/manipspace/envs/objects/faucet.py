@@ -29,7 +29,7 @@ class FaucetObject(SceneObject):
 
     def __init__(self, instance_id=0, pos=None, euler=None):
         super().__init__(instance_id, pos, euler)
-        self.var_prefix = self._suffix("faucet")
+        self.name = self._suffix("faucet")
         if instance_id > 0:
             self.joint_name = self._suffix(self.joint_name)
             self.site_name = self._suffix(self.site_name)
@@ -83,45 +83,45 @@ class FaucetObject(SceneObject):
 
     def init_to_goal(self, env, task_info):
         env._data.joint(self.joint_name).qpos[0] = task_info["goal"][
-            f"{self.var_prefix}_pos"
+            f"{self.name}_pos"
         ]
 
     def init_to_init(self, env, task_info):
         lo, hi = self.pos_range
-        val = task_info["init"][f"{self.var_prefix}_pos"]
+        val = task_info["init"][f"{self.name}_pos"]
         env._data.joint(self.joint_name).qpos[0] = float(
             np.clip(val + env.np_random.uniform(-0.01, 0.01), lo, hi)
         )
 
     def compute_success(self, env):
         cur = env._data.joint(self.joint_name).qpos[0]
-        target = env._target_object_pos.get(self.var_prefix, 0)
+        target = env._target_object_pos.get(self.name, 0)
         success = bool(np.abs(cur - target) <= self.tolerance)
-        return (success, self.var_prefix)
+        return (success, self.name)
 
     def get_info(self, env):
         from ogbench.manipspace import lie
 
         site_id = self._site_id
         return {
-            f"privileged_{self.var_prefix}_pos": env._data.joint(
+            f"privileged_{self.name}_pos": env._data.joint(
                 self.joint_name
             ).qpos.copy(),
-            f"privileged_{self.var_prefix}_vel": env._data.joint(
+            f"privileged_{self.name}_vel": env._data.joint(
                 self.joint_name
             ).qvel.copy(),
-            f"privileged_{self.var_prefix}_handle_pos": env._data.site_xpos[
+            f"privileged_{self.name}_handle_pos": env._data.site_xpos[
                 site_id
             ].copy(),
-            f"privileged_{self.var_prefix}_handle_state": self.get_state(env),
-            f"privileged_{self.var_prefix}_handle_yaw": np.array(
+            f"privileged_{self.name}_handle_state": self.get_state(env),
+            f"privileged_{self.name}_handle_yaw": np.array(
                 [
                     lie.SO3.from_matrix(
                         env._data.site_xmat[site_id].reshape(3, 3)
                     ).compute_yaw_radians()
                 ]
             ),
-            f"privileged_{self.var_prefix}_handle_quat": np.array(
+            f"privileged_{self.name}_handle_quat": np.array(
                 lie.SO3.from_matrix(
                     env._data.site_xmat[site_id].reshape(3, 3)
                 ).wxyz.copy()
@@ -130,10 +130,10 @@ class FaucetObject(SceneObject):
 
     def get_target_info(self, env):
         return {
-            f"privileged_target_{self.var_prefix}_pos": np.array(
-                [env._target_object_pos.get(self.var_prefix, 0)]
+            f"privileged_target_{self.name}_pos": np.array(
+                [env._target_object_pos.get(self.name, 0)]
             ),
-            f"privileged_target_{self.var_prefix}_handle_pos": env._data.site_xpos[
+            f"privileged_target_{self.name}_handle_pos": env._data.site_xpos[
                 self._target_site_id
             ].copy(),
         }
@@ -141,13 +141,13 @@ class FaucetObject(SceneObject):
     def add_observation(self, env, ob, ob_info):
         ob.extend(
             [
-                ob_info[f"privileged_{self.var_prefix}_pos"] * self.scaler,
-                ob_info[f"privileged_{self.var_prefix}_vel"],
+                ob_info[f"privileged_{self.name}_pos"] * self.scaler,
+                ob_info[f"privileged_{self.name}_vel"],
             ]
         )
 
     def add_oracle_obs(self, env, ob, ob_info):
-        ob.append(ob_info[f"privileged_{self.var_prefix}_pos"] * self.scaler)
+        ob.append(ob_info[f"privileged_{self.name}_pos"] * self.scaler)
 
     def get_task_probability(self, env):
         for btn_idx, jname in env._button_locks.items():
@@ -158,11 +158,11 @@ class FaucetObject(SceneObject):
 
     def handle_target(self, env):
         target_val = self._get_target_value(env)
-        env._target_object_pos[self.var_prefix] = target_val
+        env._target_object_pos[self.name] = target_val
         self._set_target(env, target_val)
 
     def get_target_from_task(self, task_info):
-        return task_info.get(f"{self.var_prefix}_pos", None)
+        return task_info.get(f"{self.name}_pos", None)
 
     def apply_lock(self, env, button_states, button_locks):
         for btn_idx, jname in button_locks.items():
@@ -185,9 +185,10 @@ class FaucetObject(SceneObject):
             return lo  # open → target closed
 
     def _set_target(self, env, val):
-        """Set target site via trig: X = 0.105*sin(val), Y = 0.105*(1-cos(val))."""
-        env._model.site(self.target_site_name).pos[0] = 0.105 * np.sin(val)
-        env._model.site(self.target_site_name).pos[1] = 0.105 * (1.0 - np.cos(val))
+        """Set target site via trig using the scale-aware handle radius."""
+        radius = 0.175 * self.scale
+        env._model.site(self.target_site_name).pos[0] = radius * np.sin(val)
+        env._model.site(self.target_site_name).pos[1] = radius * (1.0 - np.cos(val))
 
     # -- Backward-compat aliases -----------------------------------------
 

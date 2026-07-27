@@ -63,17 +63,10 @@ class CubePlanOracle(PlanOracle):
         times["place_end"] = times["place_start"] + self._dt
         times["postplace"] = times["place_end"] + self._dt
         times["final"] = times["postplace"] + self._dt
-        for time in times.keys():
-            if time != "initial":
-                times[time] += np.random.uniform(-1, 1) * self._dt * 0.2
+        self.jitter_times(times, factor=0.2)
 
         # Grasps.
-        g = 0.0
-        grasps = {}
-        for name in times.keys():
-            if name in {"pick_end", "place_end"}:
-                g = 1.0 - g
-            grasps[name] = g
+        grasps = self.build_grasps(times, {"pick_end", "place_end"})
 
         return times, poses, grasps
 
@@ -102,7 +95,7 @@ class CubePlanOracle(PlanOracle):
             ),
             "effector_goal": self.to_pose(
                 pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
-                yaw=np.random.uniform(-np.pi, np.pi),
+                yaw=0.0,
             ),
             "block_initial": self.to_pose(
                 pos=info[f"privileged_block_{target_block}_pos"],
@@ -114,12 +107,4 @@ class CubePlanOracle(PlanOracle):
             ),
         }
 
-        times, poses, grasps = self.compute_keyframes(plan_input)
-        poses = [poses[name] for name in times.keys()]
-        grasps = [grasps[name] for name in times.keys()]
-        times = list(times.values())
-
-        self._t_init = info["time"][0]
-        self._t_max = times[-1]
-        self._done = False
-        self._plan = self.compute_plan(times, poses, grasps)
+        self.finalize_plan(plan_input, info)

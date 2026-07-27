@@ -27,9 +27,7 @@ class ButtonPlanOracle(PlanOracle):
         times["press"] = times["press_start"] + self._dt * 0.8
         times["press_end"] = times["press"] + self._dt * 0.8
         times["final"] = times["press_end"] + self._dt * 1.25
-        for time in times.keys():
-            if time != "initial":
-                times[time] += np.random.uniform(-1, 1) * self._dt * 0.1
+        self.jitter_times(times)
 
         # Grasps.
         grasps = {}
@@ -62,7 +60,7 @@ class ButtonPlanOracle(PlanOracle):
             ),
             "effector_goal": self.to_pose(
                 pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
-                yaw=np.random.uniform(-np.pi, np.pi),
+                yaw=0.0,
             ),
             "button": self.to_pose(
                 pos=target_button_top_pos,
@@ -70,12 +68,4 @@ class ButtonPlanOracle(PlanOracle):
             ),
         }
 
-        times, poses, grasps = self.compute_keyframes(plan_input)
-        poses = [poses[name] for name in times.keys()]
-        grasps = [grasps[name] for name in times.keys()]
-        times = list(times.values())
-
-        self._t_init = info["time"][0]
-        self._t_max = times[-1]
-        self._done = False
-        self._plan = self.compute_plan(times, poses, grasps)
+        self.finalize_plan(plan_input, info)

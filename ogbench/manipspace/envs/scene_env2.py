@@ -1,7 +1,7 @@
 import mujoco
 import numpy as np
 from ogbench.manipspace import lie
-from ogbench.manipspace.envs.objects import FaucetObject, ButtonSingleObject
+from ogbench.manipspace.envs.objects import FaucetObject, ButtonObject
 from ogbench.manipspace.envs.scene_env_base import SceneEnvBase
 
 
@@ -10,7 +10,7 @@ class SceneEnv2(SceneEnvBase):
 
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
         self._objects = [
-            ButtonSingleObject(),
+            ButtonObject(),
             FaucetObject(),
         ]
         self._button_locks = {0: "faucet_knob"}
@@ -28,6 +28,10 @@ class SceneEnv2(SceneEnvBase):
         # Target indices (always 0 — one peg / one lid).
         self._target_peg = 0
         self._target_lid = 0
+
+    def _configure_scene(self):
+        self._object_sampling_bounds = np.asarray([[0.3, -0.07], [0.45, 0.18]])
+        self._target_sampling_bounds = self._object_sampling_bounds
 
     # ==================================================================
     # Task definitions

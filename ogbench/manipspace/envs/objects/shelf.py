@@ -17,7 +17,7 @@ class ShelfObject(SceneObject):
 
     def __init__(self, instance_id=0, pos=None, euler=None):
         super().__init__(instance_id, pos, euler)
-        self.var_prefix = self._suffix("shelf")
+        self.name = self._suffix("shelf")
         if instance_id > 0:
             self.site_name = self._suffix(self.site_name)
             self.body_name = self._suffix(self.body_name)

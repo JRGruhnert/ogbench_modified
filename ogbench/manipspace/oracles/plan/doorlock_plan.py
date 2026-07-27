@@ -22,6 +22,7 @@ class DoorlockPlanOracle(PlanOracle):
             n=2,
         )
 
+<<<<<<< Updated upstream
         # Detect direction: opening (lid goes up) vs closing (lid goes down).
         is_closing = doorlock_goal.translation()[2] < doorlock_initial.translation()[2]
 
@@ -77,6 +78,22 @@ class DoorlockPlanOracle(PlanOracle):
                 if name in {"grasp_end", "release"}:
                     g = 1.0 - g
                 grasps[name] = g
+=======
+        # Times.
+        times = {}
+        times["initial"] = 0.0
+        times["approach"] = times["initial"] + self._dt
+        times["grasp_start"] = times["approach"] + self._dt * 0.5
+        times["grasp_end"] = times["grasp_start"] + self._dt * 0.5
+        times["move"] = times["grasp_end"] + self._dt * 0.5
+        times["release"] = times["move"] + self._dt * 0.5
+        times["clearance"] = times["release"] + self._dt * 0.5
+        times["final"] = times["clearance"] + self._dt
+        self.jitter_times(times)
+
+        # Grasps.
+        grasps = self.build_grasps(times, {"grasp_end", "release"})
+>>>>>>> Stashed changes
 
         return times, poses, grasps
 
@@ -95,7 +112,7 @@ class DoorlockPlanOracle(PlanOracle):
             ),
             "effector_goal": self.to_pose(
                 pos=np.random.uniform(*self._env.unwrapped._arm_sampling_bounds),
-                yaw=np.random.uniform(-np.pi, np.pi),
+                yaw=0.0,
             ),
             "doorlock_initial": self.to_pose(
                 pos=info["privileged_doorlock_handle_pos"],
@@ -107,12 +124,4 @@ class DoorlockPlanOracle(PlanOracle):
             ),
         }
 
-        times, poses, grasps = self.compute_keyframes(plan_input)
-        poses = [poses[name] for name in times.keys()]
-        grasps = [grasps[name] for name in times.keys()]
-        times = list(times.values())
-
-        self._t_init = info["time"][0]
-        self._t_max = times[-1]
-        self._done = False
-        self._plan = self.compute_plan(times, poses, grasps)
+        self.finalize_plan(plan_input, info)

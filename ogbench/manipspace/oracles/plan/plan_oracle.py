@@ -32,6 +32,28 @@ class PlanOracle:
         self._t_max = None
         self._plan = None
 
+    def hold_after(self, times, poses, grasps, name, duration=0.5):
+        """Insert a hold keyframe after `name`, keeping the same pose/grasp for `duration` seconds.
+        
+        Returns new dicts with the hold keyframe inserted. All subsequent keyframes
+        are shifted by `duration`.
+        """
+        new_times, new_poses, new_grasps = {}, {}, {}
+        inserted = False
+        for key in times:
+            new_times[key] = times[key]
+            new_poses[key] = poses[key]
+            new_grasps[key] = grasps[key]
+            if key == name:
+                hold_key = f"{key}_hold"
+                new_times[hold_key] = times[key] + duration
+                new_poses[hold_key] = poses[key]
+                new_grasps[hold_key] = grasps[key]
+                inserted = True
+            elif inserted:
+                new_times[key] += duration
+        return new_times, new_poses, new_grasps
+
     def above(self, pose, z):
         return (
             lie.SE3.from_rotation_and_translation(
@@ -75,6 +97,34 @@ class PlanOracle:
             translation=pos,
         )
 
+    def finalize_plan(self, plan_input, info):
+        """Call compute_keyframes, convert dicts to lists, and generate the plan."""
+        times, poses, grasps = self.compute_keyframes(plan_input)
+        poses = [poses[name] for name in times.keys()]
+        grasps = [grasps[name] for name in times.keys()]
+        times = list(times.values())
+
+        self._t_init = info["time"][0]
+        self._t_max = times[-1]
+        self._done = False
+        self._plan = self.compute_plan(times, poses, grasps)
+
+    def jitter_times(self, times, factor=0.1):
+        """Add temporal noise to all keyframe times except 'initial'."""
+        for name in times:
+            if name != "initial":
+                times[name] += np.random.uniform(-1, 1) * self._dt * factor
+
+    def build_grasps(self, times, toggle_names):
+        """Build a grasps dict from keyframe names, toggling 0↔1 at each toggle_name."""
+        g = 0.0
+        grasps = {}
+        for name in times:
+            if name in toggle_names:
+                g = 1.0 - g
+            grasps[name] = g
+        return grasps
+
     def get_yaw(self, pose):
         yaw = pose.rotation().compute_yaw_radians()
         if yaw < 0.0:
@@ -87,6 +137,13 @@ class PlanOracle:
         d = np.argmin(np.abs(eff_yaw - symmetries))
         return lie.SE3.from_rotation_and_translation(
             rotation=lie.SO3.from_z_radians(symmetries[d]),
+            translation=translation,
+        )
+
+    def equal_yaw(self, obj_yaw, translation):
+        """Return the exact object yaw without symmetry adjustment."""
+        return lie.SE3.from_rotation_and_translation(
+            rotation=lie.SO3.from_z_radians(obj_yaw),
             translation=translation,
         )
 

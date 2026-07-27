@@ -27,7 +27,14 @@ class SceneEnv5(SceneEnvBase):
 
         super().__init__(env_type, permute_blocks=permute_blocks, *args, **kwargs)
 
+    def _configure_scene(self):
+        self._object_sampling_bounds = np.asarray([[0.3, -0.07], [0.45, 0.18]])
+        self._target_sampling_bounds = self._object_sampling_bounds
         self._drawer_center = np.array([0.33, -0.24, 0.066])
+        self._cube_colors = np.array([self._colors["red"], self._colors["blue"]])
+        self._cube_success_colors = np.array(
+            [self._colors["lightred"], self._colors["lightblue"]]
+        )
 
         # Shelf goal position (static fixture, cached after compilation).
         self._shelf_goal_pos = None

@@ -13,7 +13,8 @@ class FaucetPlanOracle(PlanOracle):
         init_knob_angle = plan_input["init_knob_angle"]
         goal_knob_angle = plan_input["goal_knob_angle"]
         center = plan_input["faucet_center"]
-        radius = 0.105  # 0.175 * 0.6 scale
+        # Read handle radius from the model (scale-aware, matches XML after scaling).
+        radius = abs(float(self._env._model.site("faucet_handle_center").pos[1]))
 
         # Push: close gripper, approach from outside the arc, push handle along.
         n_arc = 6
@@ -62,18 +63,16 @@ class FaucetPlanOracle(PlanOracle):
         times["approach"] = times["above"] + self._dt * 0.5
         t = times["approach"]
         for i in range(n_arc):
-            times[f"arc_{i}"] = t + self._dt * 0.4  # longer per step for smoother push
+            times[f"arc_{i}"] = t + self._dt * 0.4
             t = times[f"arc_{i}"]
         times["dwell"] = t + self._dt * 0.5
         times["lift"] = times["dwell"] + self._dt * 0.5
         times["final"] = times["lift"] + self._dt
         self.add_neutral_yaw_prephase(poses["initial"], times, poses)
-        for name in times.keys():
-            if name != "initial":
-                times[name] += np.random.uniform(-1, 1) * self._dt * 0.1
+        self.jitter_times(times)
 
         grasps = {}
-        for name in times.keys():
+        for name in times:
             grasps[name] = 1.0  # gripper always closed
 
         return times, poses, grasps
@@ -114,12 +113,4 @@ class FaucetPlanOracle(PlanOracle):
             "goal_knob_angle": target_faucet_yaw,
         }
 
-        times, poses, grasps = self.compute_keyframes(plan_input)
-        poses = [poses[name] for name in times.keys()]
-        grasps = [grasps[name] for name in times.keys()]
-        times = list(times.values())
-
-        self._t_init = info["time"][0]
-        self._t_max = times[-1]
-        self._done = False
-        self._plan = self.compute_plan(times, poses, grasps)
+        self.finalize_plan(plan_input, info)

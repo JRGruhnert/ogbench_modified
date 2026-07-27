@@ -1,13 +1,12 @@
 import time
 
-from ogbench.manipspace.envs.scene_env2 import SceneEnv2
+from ogbench.manipspace.envs.scene_env5 import SceneEnv5
 from ogbench.manipspace.oracles.plan.faucet_plan import FaucetPlanOracle
 from ogbench.manipspace.oracles.plan.lid_plan import LidPlanOracle
 from ogbench.manipspace.oracles.plan.peg_plan import PegPlanOracle
-
-env = SceneEnv2(env_type="scene", mode="task")
-# oracle = FaucetPlanOracle(env)
-# oracle = LidPlanOracle(env)
+env = SceneEnv5(env_type="scene", mode="task")
+#oracle = FaucetPlanOracle(env)
+#oracle = LidPlanOracle(env)
 oracle = PegPlanOracle(env)
 
 obs, info = env.reset()

@@ -18,6 +18,20 @@ puzzle_singletask_dict = dict(
     success_timing="pre",
 )
 
+vi_dict = dict(
+    ob_type="pixels",
+    width=256,
+    height=256,
+    visualize_info=False,
+)
+
+gt_dict = dict(
+    ob_type="pixels",
+    width=256,
+    height=256,
+    visualize_info=False,
+)
+
 # Environments for offline goal-conditioned RL.
 register(
     id="cube-single-v0",
@@ -115,48 +129,66 @@ register(
 )
 
 register(
-    id="visual-scene1",
+    id="gt-scene0",
+    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+    ),
+)
+register(
+    id="vi-scene0",
+    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **vi_dict,
+    ),
+)
+
+register(
+    id="gt-scene1",
     entry_point="ogbench.manipspace.envs.scene_env:SceneEnv1",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
-        **visual_dict,
+        **gt_dict,
     ),
 )
 register(
-    id="visual-scene2",
+    id="gt-scene2",
     entry_point="ogbench.manipspace.envs.scene_env:SceneEnv2",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
-        **visual_dict,
+        **gt_dict,
     ),
 )
 register(
-    id="visual-scene3",
+    id="gt-scene3",
     entry_point="ogbench.manipspace.envs.scene_env:SceneEnv3",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
-        **visual_dict,
+        **gt_dict,
     ),
 )
 register(
-    id="visual-scene4",
+    id="gt-scene4",
     entry_point="ogbench.manipspace.envs.scene_env:SceneEnv4",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
-        **visual_dict,
+        **gt_dict,
     ),
 )
 register(
-    id="visual-scene5",
+    id="gt-scene5",
     entry_point="ogbench.manipspace.envs.scene_env:SceneEnv5",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
-        **visual_dict,
+        **gt_dict,
     ),
 )
 

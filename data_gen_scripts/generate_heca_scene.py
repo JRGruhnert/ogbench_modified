@@ -12,10 +12,15 @@ from ogbench.manipspace.oracles.markov.button_markov import ButtonMarkovOracle
 from ogbench.manipspace.oracles.markov.cube_markov import CubeMarkovOracle
 from ogbench.manipspace.oracles.markov.drawer_markov import DrawerMarkovOracle
 from ogbench.manipspace.oracles.markov.window_markov import WindowMarkovOracle
-from ogbench.manipspace.oracles.plan.button_plan import ButtonPlanOracle
-from ogbench.manipspace.oracles.plan.cube_plan import CubePlanOracle
-from ogbench.manipspace.oracles.plan.drawer_plan import DrawerPlanOracle
-from ogbench.manipspace.oracles.plan.window_plan import WindowPlanOracle
+from ogbench.manipspace.oracles.plan.heca_button_plan import ButtonPlanOracle
+from ogbench.manipspace.oracles.plan.heca_cube_plan import CubePlanOracle
+from ogbench.manipspace.oracles.plan.heca_drawer_plan import DrawerPlanOracle
+from ogbench.manipspace.oracles.plan.heca_window_plan import WindowPlanOracle
+from ogbench.manipspace.oracles.plan.heca_faucet_plan import FaucetPlanOracle
+from ogbench.manipspace.oracles.plan.heca_doorlock_plan import DoorlockPlanOracle
+from ogbench.manipspace.oracles.plan.heca_lever_plan import LeverPlanOracle
+from ogbench.manipspace.oracles.plan.heca_peg_plan import PegPlanOracle
+from ogbench.manipspace.oracles.plan.heca_lid_plan import LidPlanOracle
 
 FLAGS = flags.FLAGS
 
@@ -51,47 +56,38 @@ def main(_):
 
     # Initialize oracles.
     oracle_type = "plan" if FLAGS.dataset_type == "play" else "markov"
-    if "scene1" in FLAGS.env_name:
+    agents = {}
+    for obj in env.unwrapped.objects:
+        oid = obj.id
+        name = obj.name  # e.g. "button_0", "drawer_0", "cube_0"
         if oracle_type == "markov":
-            agents = {
-                "cube": CubeMarkovOracle(
-                    env=env, min_norm=FLAGS.min_norm, max_step=100
-                ),
-                "button": ButtonMarkovOracle(env=env, min_norm=FLAGS.min_norm),
-                "drawer": DrawerMarkovOracle(env=env, min_norm=FLAGS.min_norm),
-                "window": WindowMarkovOracle(env=env, min_norm=FLAGS.min_norm),
-            }
+            if name.startswith("cube"):
+                agents[name] = CubeMarkovOracle(env=env, min_norm=FLAGS.min_norm, max_step=100)
+            elif name.startswith("button"):
+                agents[name] = ButtonMarkovOracle(env=env, min_norm=FLAGS.min_norm)
+            elif name.startswith("drawer"):
+                agents[name] = DrawerMarkovOracle(env=env, min_norm=FLAGS.min_norm)
+            elif name.startswith("window"):
+                agents[name] = WindowMarkovOracle(env=env, min_norm=FLAGS.min_norm)
         else:
-            agents = {
-                "cube": CubePlanOracle(
-                    env=env, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing
-                ),
-                "button": ButtonPlanOracle(
-                    env=env, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing
-                ),
-                "drawer": DrawerPlanOracle(
-                    env=env, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing
-                ),
-                "window": WindowPlanOracle(
-                    env=env, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing
-                ),
-            }
-    elif "scene2" in FLAGS.env_name:
-        if oracle_type == "markov":
-            agents = {
-                "button": ButtonMarkovOracle(
-                    env=env, min_norm=FLAGS.min_norm, gripper_always_closed=True
-                ),
-            }
-        else:
-            agents = {
-                "button": ButtonPlanOracle(
-                    env=env,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                    gripper_always_closed=True,
-                ),
-            }
+            if name.startswith("cube"):
+                agents[name] = CubePlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("button"):
+                agents[name] = ButtonPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("drawer"):
+                agents[name] = DrawerPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("window"):
+                agents[name] = WindowPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("faucet"):
+                agents[name] = FaucetPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("doorlock"):
+                agents[name] = DoorlockPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("lever"):
+                agents[name] = LeverPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("peg"):
+                agents[name] = PegPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+            elif name.startswith("lid"):
+                agents[name] = LidPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
 
     # Collect data.
     total_steps = 0
@@ -123,27 +119,14 @@ def main(_):
         written_steps += n
 
     for ep_idx in trange(num_episodes):
-        # Have an additional while loop to handle rare cases with undesirable states (for the Scene environment).
         episode_buffer: dict = defaultdict(list)
         while True:
             ob, info = env.reset()
 
-            # Set the cube stacking probability for this episode.
-            if "single" in FLAGS.env_name:
-                p_stack = 0.0
-            elif "double" in FLAGS.env_name:
-                p_stack = np.random.uniform(0.0, 0.25)
-            elif "triple" in FLAGS.env_name:
-                p_stack = np.random.uniform(0.05, 0.35)
-            elif "quadruple" in FLAGS.env_name:
-                p_stack = np.random.uniform(0.1, 0.5)
-            elif "octuple" in FLAGS.env_name:
-                p_stack = np.random.uniform(0.0, 0.35)
-            else:
-                p_stack = 0.5
+            # Stacking only possible with multiple cubes — hardcoded for now.
+            p_stack = 0.5 if any(o.name.startswith("cube") for o in env.unwrapped.objects) else 0.0
 
             if oracle_type == "markov":
-                # Set the action noise level for this episode.
                 xi = np.random.uniform(0, FLAGS.noise)
 
             agent = agents[info["privileged_target_task"]]
@@ -151,18 +134,15 @@ def main(_):
 
             done = False
             step = 0
-            ep_qpos = []
+            free_positions = []  # track free-body positions for health check
 
             while not done:
                 if np.random.rand() < FLAGS.p_random_action:
-                    # Sample a random action.
                     action = env.action_space.sample()
                 else:
-                    # Get an action from the oracle.
                     action = agent.select_action(ob, info)
                     action = np.array(action)
                     if oracle_type == "markov":
-                        # Add Gaussian noise to the action.
                         action = action + np.random.normal(
                             0, [xi, xi, xi, xi * 3, xi * 10], action.shape
                         )
@@ -171,7 +151,6 @@ def main(_):
                 done = terminated or truncated
 
                 if agent.done:
-                    # Set a new task when the current task is done.
                     agent_ob, agent_info = env.unwrapped.set_new_target(p_stack=p_stack)
                     agent = agents[agent_info["privileged_target_task"]]
                     agent.reset(agent_ob, agent_info)
@@ -190,37 +169,28 @@ def main(_):
                     elif np.isscalar(v) and not isinstance(v, (str, bytes)):
                         episode_buffer[k].append(np.array([v], dtype=np.float32))
 
-                ep_qpos.append(info["prev_qpos"])
+                # Track free-body positions for health check.
+                for obj in env.unwrapped.objects:
+                    if hasattr(obj, "joint_name") and obj.name.startswith(("cube", "peg", "lid")):
+                        free_positions.append(env.unwrapped._data.joint(obj.joint_name).qpos[:3].copy())
 
                 ob = next_ob
                 step += 1
 
-            if "scene" in FLAGS.env_name:
-                # Perform health check. We want to ensure that the cube is always visible unless it's in the drawer.
-                # Otherwise, the test-time goal images may become ambiguous.
-                is_healthy = True
-                ep_qpos = np.array(ep_qpos)
-                block_xyzs = ep_qpos[:, 14:17]
-                if (block_xyzs[:, 1] >= 0.29).any():
-                    is_healthy = False  # Block goes too far right.
-                if (
-                    (block_xyzs[:, 1] <= -0.3)
-                    & ((block_xyzs[:, 2] < 0.06) | (block_xyzs[:, 2] > 0.08))
-                ).any():
-                    is_healthy = (
-                        False  # Block goes too far left, without being in the drawer.
-                    )
-
-                if is_healthy:
-                    _flush_episode(episode_buffer)
+            # Health check: discard episode if any free-body went out of workspace bounds.
+            bounds = env.unwrapped._workspace_bounds
+            is_healthy = True
+            for pos in free_positions:
+                if np.any(pos <= bounds[0] - 0.2) or np.any(pos >= bounds[1] + 0.2):
+                    is_healthy = False
                     break
-                else:
-                    # Remove the last episode and retry.
-                    print("Unhealthy episode, retrying...", flush=True)
-                    episode_buffer = defaultdict(list)
-            else:
+
+            if is_healthy:
                 _flush_episode(episode_buffer)
                 break
+            else:
+                print("Unhealthy episode, retrying...", flush=True)
+                episode_buffer = defaultdict(list)
 
         total_steps += step
 

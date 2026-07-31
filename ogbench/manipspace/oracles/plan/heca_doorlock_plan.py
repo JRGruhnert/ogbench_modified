@@ -4,8 +4,9 @@ from ogbench.manipspace.oracles.plan.plan_oracle import PlanOracle
 
 
 class DoorlockPlanOracle(PlanOracle):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, object_id=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
         poses = {}
@@ -78,11 +79,12 @@ class DoorlockPlanOracle(PlanOracle):
 
     def reset(self, ob, info):
         env = self._env.unwrapped
-        if "privileged_target_doorlock_handle_pos" in info:
-            target_handle_pos = info["privileged_target_doorlock_handle_pos"]
+        i = self._object_id
+        if f"heca_target_doorlock_{i}_pos_ee" in info:
+            target_handle_pos = info[f"heca_target_doorlock_{i}_pos_ee"]
         else:
             target_handle_pos = env._data.site_xpos[
-                env.get_object("doorlock")._target_site_id
+                env.get_object(f"doorlock_{i}")._target_site_id
             ].copy()
 
         plan_input = {
@@ -95,12 +97,12 @@ class DoorlockPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "doorlock_initial": self.to_pose(
-                pos=info["privileged_doorlock_handle_pos"],
-                yaw=info["privileged_doorlock_handle_yaw"][0],
+                pos=info[f"heca_doorlock_{i}_pos_ee"],
+                yaw=info[f"heca_doorlock_{i}_yaw"][0],
             ),
             "doorlock_goal": self.to_pose(
                 pos=target_handle_pos,
-                yaw=info["privileged_doorlock_handle_yaw"][0],
+                yaw=info[f"heca_doorlock_{i}_yaw"][0],
             ),
         }
 

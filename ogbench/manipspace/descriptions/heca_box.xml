@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mujoco model="box">
+    <compiler angle="radian" inertiafromgeom="auto" inertiagrouprange="1 5" />
+
+    <asset>
+        <texture name="T_boxmetal" type="cube" file="textures/metal1.png" />
+        <texture name="T_boxwood" type="cube" file="textures/wood1.png" />
+
+        <material name="box_col" rgba="0.3 0.3 1.0 0.5" shininess="0" specular="0" />
+        <material name="box_red" rgba=".8 0 0 1" shininess="1" reflectance=".7" specular=".5" />
+        <material name="box_blue" rgba="0 0 .8 1" shininess="1" reflectance=".7" specular=".5" />
+        <material name="box_metal" rgba=".35 .35 .35 1" texture="T_boxmetal" shininess="1" reflectance=".7" specular=".5" />
+        <material name="box_wood" texture="T_boxwood" shininess="1" reflectance=".7" specular=".5" />
+    </asset>
+
+    <default>
+        <default class="box_base">
+            <joint armature="0.001" damping="2" limited="true" />
+            <geom conaffinity="0" contype="0" group="1" type="mesh" />
+            <default class="box_viz">
+                <geom condim="4" type="mesh" />
+            </default>
+            <default class="box_col">
+                <geom conaffinity="1" condim="3" contype="0" group="4" material="box_col" solimp="0.99 0.99 0.01" solref="0.01 1" />
+            </default>
+            <default class="top_col">
+                <geom conaffinity="1" condim="4" contype="1" group="4" material="box_col" solimp="0.99 0.99 0.01" solref="0.01 1" />
+            </default>
+            <site type="sphere" size=".01" rgba="0 1 0 1" group="5" />
+        </default>
+    </default>
+
+    <asset>
+        <mesh file="metaworld/bin/bin.stl" name="bin" scale="0.6 0.6 0.6" />
+        <mesh file="metaworld/box/boxtop.stl" name="boxtop" scale="0.6 0.6 0.6" />
+        <mesh file="metaworld/box/boxhandle.stl" name="boxhandle" scale="0.6 0.6 0.6" />
+    </asset>
+    <worldbody>
+        
+        <body childclass="box_base" name="box" pos="0 0 0" euler="0 0 0">
+            <geom material="box_wood" mesh="bin" pos="0 0 0.018" />
+            <geom class="box_col" pos="0 -0.057 0.018" size="0.06 0.003 0.018" type="box" />
+            <geom class="box_col" pos="0 0.057 0.018" size="0.06 0.003 0.018" type="box" />
+            <geom class="box_col" pos="0.057 0 0.018" size="0.003 0.054 0.018" type="box" />
+            <geom class="box_col" pos="-0.057 0 0.018" size="0.003 0.054 0.018" type="box" />
+            <geom class="box_col" pos="0 0 0.003" size="0.06 0.06 0.003" type="box" />
+        </body>
+
+        
+        <body name="box_lid_0" pos="0.3 0.3 0.039" childclass="box_base">
+            <freejoint name="box_lid_joint_0" />
+            <geom material="box_wood" mesh="boxtop" pos="0 0 -0.003" />
+            <geom material="box_metal" euler="1.57 0 0" mesh="boxhandle" pos="0 0 0.0492" name="box_lid_handle_0" />
+            <geom class="top_col" pos="0.066 -0.0 -0.0048" size="0.003 0.069 0.0048" type="box" />
+            <geom class="top_col" pos="0.0 -0.0 0.0018" size="0.069 0.069 0.0018" type="box" />
+            <geom class="top_col" pos="-0.066 -0.0 -0.0048" size="0.003 0.069 0.0048" type="box" />
+            <geom class="top_col" pos="0.0 -0.066 -0.0048" size="0.069 0.003 0.0048" type="box" />
+            <geom class="top_col" pos="0.0 0.066 -0.0048" size="0.069 0.003 0.0048" type="box" />
+            <geom class="top_col" euler="1.57 0.0 0.0" pos="0 0 0.0492" size="0.0048 0.03" type="capsule" />
+            <geom class="top_col" pos="0 -0.03 0.0258" size="0.0048 0.021" type="capsule" />
+            <geom class="top_col" pos="0 0.03 0.0258" size="0.0048 0.021" type="capsule" />
+            <site name="box_lid_handle_center_0" pos="0 0 0.0492" size="0.005" rgba="0 1 0 1" group="5" />
+            <site name="box_lid_center_0" pos="0 0 0" size="0.005" rgba="1 1 1 1" group="5" />
+        </body>
+        <body name="box_lid_target_0" pos="0.3 -0.2 0.00" mocap="true">
+            <geom name="target_box_lid_0" class="box_base" size="0.03 0.03 0.03" type="box" rgba=".5 .5 .5 .2" contype="0" conaffinity="0" group="1" />
+        </body>
+    </worldbody>
+</mujoco>

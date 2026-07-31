@@ -3,32 +3,33 @@ import numpy as np
 from ogbench.manipspace.oracles.plan.plan_oracle import PlanOracle
 
 
-class LeverPlanOracle(PlanOracle):
-    def __init__(self, *args, **kwargs):
+class WindowPlanOracle(PlanOracle):
+    def __init__(self, object_id=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
         # Poses.
         poses = {}
-        lever_initial = self.shortest_yaw(
+        window_initial = self.shortest_yaw(
             eff_yaw=self.get_yaw(plan_input["effector_initial"]),
-            obj_yaw=self.get_yaw(plan_input["lever_initial"]),
-            translation=plan_input["lever_initial"].translation(),
+            obj_yaw=self.get_yaw(plan_input["window_initial"]),
+            translation=plan_input["window_initial"].translation(),
             n=2,
         )
-        lever_goal = self.shortest_yaw(
+        window_goal = self.shortest_yaw(
             eff_yaw=self.get_yaw(plan_input["effector_initial"]),
-            obj_yaw=self.get_yaw(plan_input["lever_initial"]),
-            translation=plan_input["lever_goal"].translation(),
+            obj_yaw=self.get_yaw(plan_input["window_initial"]),
+            translation=plan_input["window_goal"].translation(),
             n=2,
         )
         poses["initial"] = plan_input["effector_initial"]
-        poses["approach"] = self.above(lever_initial, 0.08)
-        poses["grasp_start"] = lever_initial
-        poses["grasp_end"] = lever_initial
-        poses["move"] = lever_goal
-        poses["release"] = lever_goal
-        poses["clearance"] = self.above(lever_goal, 0.08)
+        poses["approach"] = self.above(window_initial, 0.06)
+        poses["grasp_start"] = window_initial
+        poses["grasp_end"] = window_initial
+        poses["move"] = window_goal
+        poses["release"] = window_goal
+        poses["clearance"] = self.above(window_goal, 0.06)
         poses["final"] = plan_input["effector_goal"]
 
         # Times.
@@ -45,16 +46,18 @@ class LeverPlanOracle(PlanOracle):
 
         # Grasps.
         grasps = self.build_grasps(times, {"grasp_end", "release"})
+        times, poses, grasps = self.hold_after(times, poses, grasps, "release", duration=0.4)
 
         return times, poses, grasps
 
     def reset(self, ob, info):
         env = self._env.unwrapped
-        if "privileged_target_lever_handle_pos" in info:
-            target_handle_pos = info["privileged_target_lever_handle_pos"]
+        i = self._object_id
+        if f"heca_target_window_{i}_pos_ee" in info:
+            target_handle_pos = info[f"heca_target_window_{i}_pos_ee"]
         else:
             target_handle_pos = env._data.site_xpos[
-                env.get_object("lever")._target_site_id
+                env.get_object(f"window_{i}")._target_site_id
             ].copy()
 
         plan_input = {
@@ -66,13 +69,13 @@ class LeverPlanOracle(PlanOracle):
                 pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
-            "lever_initial": self.to_pose(
-                pos=info["privileged_lever_handle_pos"],
-                yaw=info["privileged_lever_handle_yaw"][0],
+            "window_initial": self.to_pose(
+                pos=info[f"heca_window_{i}_pos_ee"],
+                yaw=info[f"heca_window_{i}_yaw"][0],
             ),
-            "lever_goal": self.to_pose(
+            "window_goal": self.to_pose(
                 pos=target_handle_pos,
-                yaw=info["privileged_lever_handle_yaw"][0],
+                yaw=info[f"heca_window_{i}_yaw"][0],
             ),
         }
 

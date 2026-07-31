@@ -4,36 +4,37 @@ from ogbench.manipspace import lie
 from ogbench.manipspace.oracles.plan.plan_oracle import PlanOracle
 
 
-class PegPlanOracle(PlanOracle):
-    """Plan oracle for picking up the assembly peg and placing it at the target."""
-
-    def __init__(self, *args, **kwargs):
+class LidPlanOracle(PlanOracle):
+    def __init__(self, object_id=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
         poses = {}
 
-        # Pick — go above the peg handle, descend, grab.
-        grab_yaw = self.get_yaw(plan_input["peg_initial"]) + np.pi / 2
-        peg_initial = self.to_pose(
-            pos=plan_input["peg_initial"].translation(),
+        # Pick — go above the lid handle, descend, grab.
+        # Rotate gripper 90° relative to handle so fingers close across the handle.
+        grab_yaw = self.get_yaw(plan_input["lid_initial"]) + np.pi / 2
+        lid_initial = self.to_pose(
+            pos=plan_input["lid_initial"].translation(),
             yaw=grab_yaw,
         )
         poses["initial"] = plan_input["effector_initial"]
-        poses["pick"] = self.above(peg_initial, 0.12 + np.random.uniform(0, 0.08))
-        poses["pick_start"] = peg_initial
-        poses["pick_end"] = peg_initial
+        poses["pick"] = self.above(lid_initial, 0.12 + np.random.uniform(0, 0.08))
+        poses["pick_start"] = lid_initial
+        poses["pick_end"] = lid_initial
         poses["postpick"] = poses["pick"]
 
-        # Place — go above target + offset so the ring lands on target.
-        handle_pos = plan_input["peg_initial"].translation()
-        ring_center = plan_input["ring_center"]
-        offset = handle_pos - ring_center
-        place_pos = plan_input["peg_goal"].translation() + offset
-        peg_goal = self.to_pose(pos=place_pos, yaw=grab_yaw)
-        poses["place"] = self.above(peg_goal, 0.12 + np.random.uniform(0, 0.08))
-        poses["place_start"] = peg_goal
-        poses["place_end"] = peg_goal
+        # Place — go above target, descend, release.
+        lid_goal = self.shortest_yaw(
+            eff_yaw=self.get_yaw(poses["postpick"]),
+            obj_yaw=self.get_yaw(plan_input["lid_goal"]),
+            translation=plan_input["lid_goal"].translation(),
+            n=2,
+        )
+        poses["place"] = self.above(lid_goal, 0.12 + np.random.uniform(0, 0.08))
+        poses["place_start"] = lid_goal
+        poses["place_end"] = lid_goal
         poses["postplace"] = poses["place"]
         poses["final"] = plan_input["effector_goal"]
 
@@ -59,8 +60,9 @@ class PegPlanOracle(PlanOracle):
             if time != "initial" and not time.endswith("_dwell"):
                 times[time] += np.random.uniform(-1, 1) * self._dt * 0.2
 
-        grasps = {}
+        # Grasps.
         g = 0.0
+        grasps = {}
         for name in times.keys():
             if name in {"pick_end", "place_end"}:
                 g = 1.0 - g
@@ -70,12 +72,13 @@ class PegPlanOracle(PlanOracle):
 
     def reset(self, ob, info):
         env = self._env.unwrapped
-        if "privileged_target_peg_pos" in info:
-            target_pos = info["privileged_target_peg_pos"]
-            target_yaw = info["privileged_target_peg_yaw"][0]
+        i = self._object_id
+        if f"heca_target_lid_{i}_pos" in info:
+            target_pos = info[f"heca_target_lid_{i}_pos"]
+            target_yaw = info[f"heca_target_lid_{i}_yaw"][0]
         else:
-            peg = env.get_object("peg")
-            target_pos = env._data.mocap_pos[peg._target_mocap_ids[0]].copy()
+            lid = env.get_object(f"lid_{i}")
+            target_pos = env._data.mocap_pos[lid._target_mocap_id].copy()
             target_yaw = 0.0
 
         plan_input = {
@@ -87,15 +90,14 @@ class PegPlanOracle(PlanOracle):
                 pos=np.random.uniform(*env._arm_sampling_bounds),
                 yaw=0.0,
             ),
-            "peg_initial": self.to_pose(
-                pos=info["privileged_peg_0_handle_pos"],
-                yaw=info["privileged_peg_0_yaw"][0],
+            "lid_initial": self.to_pose(
+                pos=info[f"heca_lid_{i}_pos_ee"],
+                yaw=info[f"heca_lid_{i}_yaw"][0],
             ),
-            "peg_goal": self.to_pose(
+            "lid_goal": self.to_pose(
                 pos=target_pos,
                 yaw=target_yaw,
             ),
-            "ring_center": info["privileged_peg_0_pos"],
         }
 
         times, poses, grasps = self.compute_keyframes(plan_input)

@@ -5,11 +5,11 @@ from ogbench.manipspace.envs.objects.base import SceneObject
 
 
 class ShelfObject(SceneObject):
-    xml_file = "shelf.xml"
+    xml_file = "heca_shelf.xml"
     name = "shelf"
 
-    def __init__(self, instance_id=0, pos=None, euler=None):
-        super().__init__(instance_id, pos, euler)
+    def __init__(self, id=0, pos=None, euler=None):
+        super().__init__(id, pos, euler)
         self._cube = None
 
     def set_cube(self, cube):
@@ -17,7 +17,8 @@ class ShelfObject(SceneObject):
         self._cube = cube
 
     def post_compilation(self, env):
-        self._goal_site_id = env._model.site("shelf_goal").id
+        self._body_id = env._model.body(self._jname("shelf")).id
+        self._goal_site_id = env._model.site(self._jname("shelf_goal")).id
 
     def compute_success(self, env):
         return (True, "shelf")
@@ -43,9 +44,10 @@ class ShelfObject(SceneObject):
 
     def get_info(self, env):
         return {
-            f"heca_{self.name}_{self.instance_id}_pos": env._data.site_xpos[self._goal_site_id].copy(),
-            f"heca_{self.name}_{self.instance_id}_rot": np.array([1.0, 0.0, 0.0, 0.0]),
-            f"heca_{self.name}_{self.instance_id}_ste": 0,
+            f"heca_{self.name}_pos_base": env._data.xpos[self._body_id].copy(),
+            f"heca_{self.name}_pos_ee": env._data.site_xpos[self._goal_site_id].copy(),
+            f"heca_{self.name}_rot": np.array([1.0, 0.0, 0.0, 0.0]),
+            f"heca_{self.name}_ste": 0,
         }
 
     def init_to_goal(self, env, task_info):

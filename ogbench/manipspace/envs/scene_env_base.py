@@ -7,12 +7,12 @@ from ogbench.manipspace.envs.objects.base import SceneObject
 
 
 class SceneEnvBase(ManipSpaceEnv):
-    def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
+    def __init__(self, env_type, objects=None, permute_blocks=True, *args, **kwargs):
         self._env_type = env_type
+        self._objects = objects or []
         self._permute_blocks = permute_blocks
         super().__init__(*args, **kwargs)
         self._arm_sampling_bounds = np.asarray([[0.25, -0.2, 0.20], [0.6, 0.2, 0.35]])
-
 
     def set_tasks(self):
         raise NotImplementedError
@@ -66,6 +66,10 @@ class SceneEnvBase(ManipSpaceEnv):
             if obj.name in probs:
                 task_list.append(obj.name)
                 prob_list.append(probs[obj.name])
+        if not task_list:
+            if return_info:
+                return self.compute_observation(), self.get_reset_info()
+            return
         probs = np.array(prob_list, dtype=float)
         probs /= probs.sum()
         self._target_task = self.np_random.choice(task_list, p=probs)
@@ -116,10 +120,10 @@ class SceneEnvBase(ManipSpaceEnv):
     def objects(self) -> list[SceneObject]:
         return self._objects
 
-    def get_object(self, name, instance_id=0):
-        """Find a SceneObject by name and optional instance_id."""
+    def get_object(self, name):
+        """Find a SceneObject by name."""
         for obj in self._objects:
-            if obj.name == name and obj.instance_id == instance_id:
+            if obj.name == name:
                 return obj
         return None
 
@@ -201,3 +205,33 @@ class SceneEnvBase(ManipSpaceEnv):
     def compute_reward(self):
         successes = [val for val, _ in self._compute_successes()]
         return float(sum(successes) - len(successes))
+
+    def set_scene_state(self, state_dict: dict):
+        """Teleport the scene to a given state. Respects lock rules — if any object
+        refuses, no state changes are made.
+
+        Args:
+            state_dict: dict mapping object name → value.
+                        Joint objects: float (joint position).
+                        Free-body objects: (pos, quat) tuple.
+                        Buttons: int (0 or 1).
+        Returns:
+            True if state was set, False if any object refused (locked).
+        """
+        # Phase 1: check all objects.
+        for name, value in state_dict.items():
+            obj = self.get_object(name)
+            if obj is None:
+                continue
+            if not obj.can_set_state(self, value):
+                return False
+
+        # Phase 2: apply all changes.
+        for name, value in state_dict.items():
+            obj = self.get_object(name)
+            if obj is None:
+                continue
+            obj.set_state(self, value)
+
+        self._apply_button_states()
+        return True

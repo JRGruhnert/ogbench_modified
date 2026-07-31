@@ -4,8 +4,9 @@ from ogbench.manipspace.oracles.plan.plan_oracle import PlanOracle
 
 
 class FaucetPlanOracle(PlanOracle):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, object_id=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
         faucet_initial = plan_input["faucet_initial"]
@@ -79,16 +80,18 @@ class FaucetPlanOracle(PlanOracle):
 
     def reset(self, ob, info):
         env = self._env.unwrapped
-        if "privileged_target_faucet_handle_pos" in info:
-            target_handle_pos = info["privileged_target_faucet_handle_pos"]
-            target_faucet_yaw = info["privileged_target_faucet_pos"][0]
+        i = self._object_id
+        if f"heca_target_faucet_{i}_pos_ee" in info:
+            target_handle_pos = info[f"heca_target_faucet_{i}_pos_ee"]
+            target_faucet_yaw = info[f"heca_target_faucet_{i}_pos"][0]
+            faucet = env.get_object(f"faucet_{i}")
         else:
-            faucet = env.get_object("faucet")
+            faucet = env.get_object(f"faucet_{i}")
             target_handle_pos = env._data.site_xpos[faucet._target_site_id].copy()
             target_faucet_yaw = faucet._target_val
 
         faucet_center = self._env._data.xpos[
-            self._env._data.body("faucet_link").id
+            self._env._data.body(faucet._jname("faucet_link")).id
         ].copy()
 
         plan_input = {
@@ -101,15 +104,15 @@ class FaucetPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "faucet_initial": self.to_pose(
-                pos=info["privileged_faucet_handle_pos"],
-                yaw=info["privileged_faucet_handle_yaw"][0],
+                pos=info[f"heca_faucet_{i}_pos_ee"],
+                yaw=info[f"heca_faucet_{i}_yaw"][0],
             ),
             "faucet_goal": self.to_pose(
                 pos=target_handle_pos,
-                yaw=info["privileged_faucet_handle_yaw"][0],
+                yaw=info[f"heca_faucet_{i}_yaw"][0],
             ),
             "faucet_center": faucet_center,
-            "init_knob_angle": self._env._data.joint("faucet_knob").qpos[0],
+            "init_knob_angle": self._env._data.joint(faucet.joint_name).qpos[0],
             "goal_knob_angle": target_faucet_yaw,
         }
 

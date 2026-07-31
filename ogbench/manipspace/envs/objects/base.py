@@ -30,25 +30,46 @@ class SceneObject:
     xml_file: str = ""
     name: str = ""
     joint_name: str = None
-    count: int = 0
 
-    def __init__(self, instance_id: int = 0, pos=None, euler=None):
-        self.instance_id = instance_id
+    def __init__(self, id: int = 0, pos=None, euler=None):
+        self.id = id
         self.pos = pos
         self.euler = euler
+        self.name = f"{self.name}_{id}"
+
+    @property
+    def _suf(self):
+        return f"_{self.id}" if self.id > 0 else ""
+
+    def _jname(self, base):
+        return f"{base}{self._suf}"
 
     def load(self, arena_mjcf, desc_dir):
         self._mjcf = mjcf.from_path((desc_dir / self.xml_file).as_posix())
-        if self.instance_id > 0:
-            self._rename_elements(self._mjcf, self.instance_id)
+        if self.id > 0:
+            self._rename_elements(self._mjcf, self.id)
+        # Apply pos/euler to the root body if provided.
+        if self.pos is not None or self.euler is not None:
+            for body in self._mjcf.worldbody.find_all("body"):
+                if self.pos is not None:
+                    body.pos = self.pos
+                if self.euler is not None:
+                    body.euler = self.euler
+                break  # Only the first body
         arena_mjcf.include_copy(self._mjcf)
 
     @staticmethod
     def _rename_elements(mjcf_model, suffix):
-        for tag in ("body", "joint", "site", "geom", "material"):
+        # Rename all named elements to avoid duplicates when loading the same XML twice.
+        TAGS = ("body", "joint", "site", "geom", "material", "texture", "mesh",
+                "actuator", "sensor", "camera", "light", "equality", "tendon")
+        for tag in TAGS:
             for el in mjcf_model.find_all(tag):
                 if el.name:
                     el.name = f"{el.name}_{suffix}"
+        for el in mjcf_model.find_all("default"):
+            if el.dclass:
+                el.dclass = f"{el.dclass}_{suffix}"
 
     def default_quaternion(self) -> np.ndarray:
         return np.array(lie.SO3.identity().wxyz.tolist())
@@ -97,6 +118,26 @@ class SceneObject:
 
     def apply_colors_and_locks(self, env):
         pass
+
+    def get_state(self):
+        """Current state of this object (used by other objects for lock rules)."""
+        return 0
+
+    def can_set_state(self, env, value):
+        """Can this object be set to the given value right now?"""
+        return not self._is_locked(env)
+
+    def set_state(self, env, value):
+        """Directly set this object's state (teleport)."""
+        pass
+
+    def _is_locked(self, env):
+        """Locked when any rule object's state doesn't match its unlock state."""
+        for name, unlock_state in getattr(self, "_lock_rule", {}).items():
+            for obj in env._objects:
+                if obj.name == name and obj.get_state() != unlock_state:
+                    return True
+        return False
 
     def health_check_and_colors(self, env, successes):
         pass

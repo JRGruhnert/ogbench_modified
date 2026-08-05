@@ -6,12 +6,13 @@ from ogbench.manipspace.envs.objects.base import SceneObject
 
 class LidObject(SceneObject):
     """Box lid — a free-body lid for the box/bin."""
-    xml_file = "heca_box.xml"
+    xml_file = "heca_box_lid.xml"
     name = "lid"
 
-    def __init__(self, id=0, pos=None, euler=None, sampling_bounds=None):
+    def __init__(self, id=0, pos=None, euler=None, sampling_bounds=None, containers=None):
         super().__init__(id, pos, euler)
         self._sampling_bounds = sampling_bounds
+        self._containers = containers or []
 
     @property
     def joint_name(self):
@@ -25,6 +26,9 @@ class LidObject(SceneObject):
         xy = env.np_random.uniform(*bounds)
         env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
         env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
+        # Initialize mocap target to current position.
+        env._data.mocap_pos[self._target_mocap_id] = env._data.joint(self.joint_name).qpos[:3].copy()
+        env._data.mocap_quat[self._target_mocap_id] = env._data.joint(self.joint_name).qpos[3:].copy()
 
     def init_to_goal(self, env, task_info):
         xyz = task_info["goal"]["lid_xyzs"][0]
@@ -45,6 +49,10 @@ class LidObject(SceneObject):
         env._data.mocap_pos[self._target_mocap_id] = goal_xyz
         env._data.mocap_quat[self._target_mocap_id] = identity
 
+    def _is_inside_any_container(self, env):
+        pos = env._data.joint(self.joint_name).qpos[:3]
+        return any(c.contains(env, pos) for c in self._containers)
+
     def compute_success(self, env):
         obj_pos = env._data.joint(self.joint_name).qpos[:3]
         tar_pos = env._data.mocap_pos[self._target_mocap_id]
@@ -64,7 +72,7 @@ class LidObject(SceneObject):
             f"heca_lid_{i}_pos_ee": env._data.site_xpos[env._model.site(self._jname("box_lid_handle_center_0")).id].copy(),
             f"heca_lid_{i}_rot": quat,
             f"heca_lid_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
-            f"heca_lid_{i}_ste": 1,
+            f"heca_lid_{i}_ste": 0,
         }
 
     def get_info_target(self, env):
@@ -77,22 +85,41 @@ class LidObject(SceneObject):
         }
 
     def get_task_probability(self, env):
+        if self._containers and self._is_inside_any_container(env):
+            return 0.0
         return 1.0
 
     def handle_target(self, env):
-        bounds = self._sampling_bounds if self._sampling_bounds is not None else [[0.3, -0.3], [0.55, 0.3]]
-        xy = env.np_random.uniform(*bounds)
+        available = not self._is_inside_any_container(env) if self._containers else True
+        if not available:
+            return
+
+        open_containers = [c for c in self._containers if c.is_open(env)]
+        use_container = open_containers and env.np_random.uniform() < 0.3
+
+        if use_container:
+            container = open_containers[env.np_random.choice(len(open_containers))]
+            tar_pos = container.get_placement_pos(env)
+        else:
+            bounds = self._sampling_bounds if self._sampling_bounds is not None else [[0.3, -0.3], [0.55, 0.3]]
+            xy = env.np_random.uniform(*bounds)
+            tar_pos = (*xy, 0.02)
+
         yaw = env.np_random.uniform(0, 2 * np.pi)
-        env._data.mocap_pos[self._target_mocap_id] = (*xy, 0.02)
-        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+        tar_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+
+        env._data.mocap_pos[self._target_mocap_id] = tar_pos
+        env._data.mocap_quat[self._target_mocap_id] = tar_ori
+
+    def set_all_mocap(self, env, pos, quat):
+        env._data.mocap_pos[self._target_mocap_id] = pos
+        env._data.mocap_quat[self._target_mocap_id] = quat
 
     def set_state(self, env, value):
-        """value is a (pos, quat) tuple."""
         pos, quat = value
         env._data.joint(self.joint_name).qpos[:3] = pos
         env._data.joint(self.joint_name).qpos[3:] = quat
-        env._data.mocap_pos[self._target_mocap_id] = pos
-        env._data.mocap_quat[self._target_mocap_id] = quat
+        self.set_all_mocap(env, pos, quat)
 
     def get_target_from_task(self, task_info):
         return task_info.get("lid_xyzs")

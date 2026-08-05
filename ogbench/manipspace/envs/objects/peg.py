@@ -25,6 +25,8 @@ class PegObject(SceneObject):
         xy = env.np_random.uniform(*bounds)
         env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
         env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
+        env._data.mocap_pos[self._target_mocap_id] = env._data.joint(self.joint_name).qpos[:3].copy()
+        env._data.mocap_quat[self._target_mocap_id] = env._data.joint(self.joint_name).qpos[3:].copy()
 
     def init_to_goal(self, env, task_info):
         xyz = task_info["goal"]["peg_xyzs"][0]
@@ -64,7 +66,7 @@ class PegObject(SceneObject):
             f"heca_peg_{i}_pos_ee": env._data.site_xpos[env._model.site(self._jname("peg_handle_site_0")).id].copy(),
             f"heca_peg_{i}_rot": quat,
             f"heca_peg_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
-            f"heca_peg_{i}_ste": 1,
+            f"heca_peg_{i}_ste": 0,
         }
 
     def get_info_target(self, env):

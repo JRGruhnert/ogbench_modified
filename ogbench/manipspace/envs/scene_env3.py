@@ -1,51 +1,32 @@
 import numpy as np
 
 from ogbench.manipspace.envs.objects import (
-    DrawerObject,
-    DoorlockObject,
-    LeverObject,
+    FaucetObject,
     ButtonObject,
+    PegObject,
+    LidObject,
+    WindowObject,
     CubeObject,
+    DrawerObject,
+    LeverObject,
+    ShelfObject,
 )
 from ogbench.manipspace.envs.scene_env_base import SceneEnvBase
 
 
 class SceneEnv3(SceneEnvBase):
-    """Drawer + 1 button + doorlock + lever + 1 cube."""
-
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
         cube_bounds = np.asarray([[0.3, -0.07], [0.45, 0.18]])
-        btn = ButtonObject()
-        drawer = DrawerObject(
-            pos=(0.33, -0.42, 0.084), euler=(0, 0, 3.14), lock_rule={"button_0": 1}
-        )
-        self._objects = [
-            CubeObject(sampling_bounds=cube_bounds, containers=[drawer]),
-            btn,
-            drawer,
-            DoorlockObject(),
-            LeverObject(),
-        ]
-        super().__init__(env_type, permute_blocks=permute_blocks, *args, **kwargs)
 
-    def set_tasks(self):
-        self.task_infos = [
-            dict(task_name="task1_open_drawer_doorlock_lever",
-                 init=dict(block_xyzs=np.array([[0.35, 0.05, 0.02]]), button_0=1, drawer_pos=0.0, doorlock_pos=0.0, lever_pos=0.0),
-                 goal=dict(block_xyzs=np.array([[0.35, 0.05, 0.02]]), button_0=1, drawer_pos=-0.16, doorlock_pos=-2.0, lever_pos=1.57)),
-            dict(task_name="task2_close_drawer_doorlock_lever",
-                 init=dict(block_xyzs=np.array([[0.35, -0.05, 0.02]]), button_0=1, drawer_pos=-0.16, doorlock_pos=-2.0, lever_pos=1.57),
-                 goal=dict(block_xyzs=np.array([[0.35, -0.05, 0.02]]), button_0=1, drawer_pos=0.0, doorlock_pos=0.0, lever_pos=0.0)),
-            dict(task_name="task3_rearrange_doorlock",
-                 init=dict(block_xyzs=np.array([[0.4, -0.05, 0.02]]), button_0=1, drawer_pos=0.0, doorlock_pos=0.0, lever_pos=0.0),
-                 goal=dict(block_xyzs=np.array([[0.4, 0.15, 0.02]]), button_0=1, drawer_pos=-0.16, doorlock_pos=-2.0, lever_pos=0.0)),
-            dict(task_name="task4_put_in_drawer_doorlock",
-                 init=dict(block_xyzs=np.array([[0.35, 0.05, 0.02]]), button_0=1, drawer_pos=0.0, doorlock_pos=0.0, lever_pos=0.0),
-                 goal=dict(block_xyzs=np.array([[0.33, -0.356, 0.065986]]), button_0=1, drawer_pos=0.0, doorlock_pos=-2.0, lever_pos=0.0)),
-            dict(task_name="task5_rearrange_hard_doorlock_lever",
-                 init=dict(block_xyzs=np.array([[0.35, 0.15, 0.02]]), button_0=1, drawer_pos=0.0, doorlock_pos=-2.0, lever_pos=0.0),
-                 goal=dict(block_xyzs=np.array([[0.33, -0.356, 0.065986]]), button_0=1, drawer_pos=0.0, doorlock_pos=0.0, lever_pos=1.57)),
-        ]
-
-        if self._reward_task_id == 0:
-            self._reward_task_id = 2
+        drawer0 = DrawerObject(
+                id=0,
+                pos=(0.33, -0.42, 0.084),
+                euler=(0, 0, 3.14),
+                locks={"button_0": 1}
+            )
+        cube0 = CubeObject(id= 0, sampling_bounds=cube_bounds, containers=[drawer0])
+        btn0 = ButtonObject(id=0, pos=(0.58, -0.05, 0.048),euler=(-1.57, 0, 0))
+        btn1 = ButtonObject(id=1, pos=(0.58, 0.05, 0.048),euler=(-1.57, 0, 0))
+        window0 = WindowObject(id= 0, pos=(0.3, 0.3, 0.202), locks={"button_1": 1})
+        objects = [drawer0, cube0, btn0, btn1, window0]
+        super().__init__(env_type, objects, permute_blocks=permute_blocks, *args, **kwargs)

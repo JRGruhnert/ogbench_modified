@@ -1,30 +1,33 @@
 import numpy as np
 
 from ogbench.manipspace.envs.objects import (
-    DrawerObject,
-    WindowObject,
+    FaucetObject,
     ButtonObject,
+    PegObject,
+    LidObject,
+    WindowObject,
     CubeObject,
+    DrawerObject,
+    LeverObject,
+    ShelfObject,
 )
 from ogbench.manipspace.envs.scene_env_base import SceneEnvBase
 
 
 class SceneEnv0(SceneEnvBase):
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
-        cube_bounds = np.asarray([[0.3, -0.07], [0.45, 0.18]])
-
-        drawer = DrawerObject(
+        bounds = np.asarray([[0.3, -0.07], [0.45, 0.18]])
+        btn0 = ButtonObject(id=0, pos=(0.58, -0.05, 0.048),euler=(-1.57, 0, 0))
+        btn1 = ButtonObject(id=1, pos=(0.58, 0.05, 0.048),euler=(-1.57, 0, 0))
+        drawer0 = DrawerObject(
+            id=0,
             pos=(0.33, -0.42, 0.084),
             euler=(0, 0, 3.14),
-            lock_rule={"button_0": 1},
+            locks={"button_0": 1}
         )
-        objects = [
-            CubeObject(sampling_bounds=cube_bounds, containers=[drawer]),
-            ButtonObject(id=0),
-            ButtonObject(id=1),
-            drawer,
-            WindowObject(pos=(0.3, 0.3, 0.202), lock_rule={"button_1": 1}),
-        ]
+        window0 = WindowObject(id= 0, pos=(0.3, 0.3, 0.202), locks={"button_1": 1})
+        cube0 = CubeObject(id= 0, sampling_bounds=bounds, containers=[drawer0])
+        objects = [drawer0, cube0, btn0, btn1, window0]
         super().__init__(env_type, objects, permute_blocks=permute_blocks, *args, **kwargs)
 
     def set_tasks(self):
@@ -35,15 +38,15 @@ class SceneEnv0(SceneEnvBase):
                     block_xyzs=np.array([[0.35, 0.05, 0.02]]),
                     button_0=1,
                     button_1=1,
-                    drawer_pos=0.0,
-                    window_pos=0.0,
+                    drawer_0_pos=0.0,
+                    window_0_pos=0.0,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.35, 0.05, 0.02]]),
                     button_0=1,
                     button_1=1,
-                    drawer_pos=-0.16,
-                    window_pos=0.2,
+                    drawer_0_pos=-0.16,
+                    window_0_pos=0.2,
                 ),
             ),
             dict(
@@ -52,15 +55,15 @@ class SceneEnv0(SceneEnvBase):
                     block_xyzs=np.array([[0.35, -0.05, 0.02]]),
                     button_0=0,
                     button_1=0,
-                    drawer_pos=-0.16,
-                    window_pos=0.2,
+                    drawer_0_pos=-0.16,
+                    window_0_pos=0.2,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.35, -0.05, 0.02]]),
                     button_0=0,
                     button_1=0,
-                    drawer_pos=0.0,
-                    window_pos=0.0,
+                    drawer_0_pos=0.0,
+                    window_0_pos=0.0,
                 ),
             ),
             dict(
@@ -69,15 +72,15 @@ class SceneEnv0(SceneEnvBase):
                     block_xyzs=np.array([[0.4, -0.05, 0.02]]),
                     button_0=1,
                     button_1=0,
-                    drawer_pos=0.0,
-                    window_pos=0.2,
+                    drawer_0_pos=0.0,
+                    window_0_pos=0.2,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.4, 0.15, 0.02]]),
                     button_0=1,
                     button_1=1,
-                    drawer_pos=-0.16,
-                    window_pos=0.0,
+                    drawer_0_pos=-0.16,
+                    window_0_pos=0.0,
                 ),
             ),
             dict(
@@ -86,15 +89,15 @@ class SceneEnv0(SceneEnvBase):
                     block_xyzs=np.array([[0.35, 0.05, 0.02]]),
                     button_0=0,
                     button_1=0,
-                    drawer_pos=0.0,
-                    window_pos=0.0,
+                    drawer_0_pos=0.0,
+                    window_0_pos=0.0,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.33, -0.356, 0.065986]]),
                     button_0=1,
                     button_1=0,
-                    drawer_pos=0.0,
-                    window_pos=0.0,
+                    drawer_0_pos=0.0,
+                    window_0_pos=0.0,
                 ),
             ),
             dict(
@@ -103,15 +106,15 @@ class SceneEnv0(SceneEnvBase):
                     block_xyzs=np.array([[0.35, 0.15, 0.02]]),
                     button_0=0,
                     button_1=0,
-                    drawer_pos=0.0,
-                    window_pos=0.0,
+                    drawer_0_pos=0.0,
+                    window_0_pos=0.0,
                 ),
                 goal=dict(
                     block_xyzs=np.array([[0.33, -0.356, 0.065986]]),
                     button_0=0,
                     button_1=0,
-                    drawer_pos=0.0,
-                    window_pos=0.2,
+                    drawer_0_pos=0.0,
+                    window_0_pos=0.2,
                 ),
             ),
         ]

@@ -23,6 +23,9 @@ class ShelfObject(SceneObject):
     def compute_success(self, env):
         return (True, "shelf")
 
+    def get_task_probability(self, env):
+        return None  # passive container, not a target
+
     def contains(self, env, obj_pos):
         """Check if a 3D point is on the shelf."""
         shelf_pos = env._data.site_xpos[self._goal_site_id]

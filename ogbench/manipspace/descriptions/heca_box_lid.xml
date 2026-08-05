@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mujoco model="box_lid">
+    <!-- Assets and defaults are provided by heca_box_base.xml.
+         This file only contains the free-body lid and its mocap target. -->
+
+    <worldbody>
+        <body name="box_lid_0" pos="0.3 0.3 0.039" childclass="box_base">
+            <freejoint name="box_lid_joint_0" />
+            <geom material="box_wood" mesh="boxtop" pos="0 0 -0.003" />
+            <geom material="box_metal" euler="1.57 0 0" mesh="boxhandle" pos="0 0 0.0492" name="box_lid_handle_0" />
+            <geom class="top_col" pos="0.066 -0.0 -0.0048" size="0.003 0.069 0.0048" type="box" />
+            <geom class="top_col" pos="0.0 -0.0 0.0018" size="0.069 0.069 0.0018" type="box" />
+            <geom class="top_col" pos="-0.066 -0.0 -0.0048" size="0.003 0.069 0.0048" type="box" />
+            <geom class="top_col" pos="0.0 -0.066 -0.0048" size="0.069 0.003 0.0048" type="box" />
+            <geom class="top_col" pos="0.0 0.066 -0.0048" size="0.069 0.003 0.0048" type="box" />
+            <geom class="top_col" euler="1.57 0.0 0.0" pos="0 0 0.0492" size="0.0048 0.03" type="capsule" />
+            <geom class="top_col" pos="0 -0.03 0.0258" size="0.0048 0.021" type="capsule" />
+            <geom class="top_col" pos="0 0.03 0.0258" size="0.0048 0.021" type="capsule" />
+            <site name="box_lid_handle_center_0" pos="0 0 0.0492" size="0.005" rgba="0 1 0 1" group="5" />
+            <site name="box_lid_center_0" pos="0 0 0" size="0.005" rgba="1 1 1 1" group="5" />
+        </body>
+
+        <body name="box_lid_target_0" pos="0.3 -0.2 0.00" mocap="true">
+            <geom name="target_box_lid_0" class="box_base" size="0.03 0.03 0.03" type="box" rgba=".5 .5 .5 .2" contype="0" conaffinity="0" group="1" />
+        </body>
+    </worldbody>
+</mujoco>

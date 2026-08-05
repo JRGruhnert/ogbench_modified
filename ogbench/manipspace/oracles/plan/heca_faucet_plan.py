@@ -15,7 +15,7 @@ class FaucetPlanOracle(PlanOracle):
         goal_knob_angle = plan_input["goal_knob_angle"]
         center = plan_input["faucet_center"]
         # Read handle radius from the model (scale-aware, matches XML after scaling).
-        radius = abs(float(self._env._model.site("faucet_handle_center").pos[1]))
+        radius = abs(float(self._env.unwrapped._model.site("faucet_handle_center").pos[1]))
 
         # Push: close gripper, approach from outside the arc, push handle along.
         n_arc = 6
@@ -90,9 +90,7 @@ class FaucetPlanOracle(PlanOracle):
             target_handle_pos = env._data.site_xpos[faucet._target_site_id].copy()
             target_faucet_yaw = faucet._target_val
 
-        faucet_center = self._env._data.xpos[
-            self._env._data.body(faucet._jname("faucet_link")).id
-        ].copy()
+        faucet_center = env._data.xpos[faucet._body_id].copy()
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -112,7 +110,7 @@ class FaucetPlanOracle(PlanOracle):
                 yaw=info[f"heca_faucet_{i}_yaw"][0],
             ),
             "faucet_center": faucet_center,
-            "init_knob_angle": self._env._data.joint(faucet.joint_name).qpos[0],
+            "init_knob_angle": env._data.joint(faucet.joint_name).qpos[0],
             "goal_knob_angle": target_faucet_yaw,
         }
 

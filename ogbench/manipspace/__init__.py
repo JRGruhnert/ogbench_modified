@@ -130,7 +130,7 @@ register(
 
 register(
     id="gt-scene0",
-    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv",
+    entry_point="ogbench.manipspace.envs.scene_env0:SceneEnv0",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
@@ -138,7 +138,7 @@ register(
 )
 register(
     id="vi-scene0",
-    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv",
+    entry_point="ogbench.manipspace.envs.scene_env0:SceneEnv0",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
@@ -148,7 +148,7 @@ register(
 
 register(
     id="gt-scene1",
-    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv1",
+    entry_point="ogbench.manipspace.envs.scene_env1:SceneEnv1",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
@@ -157,7 +157,7 @@ register(
 )
 register(
     id="gt-scene2",
-    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv2",
+    entry_point="ogbench.manipspace.envs.scene_env2:SceneEnv2",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
@@ -166,7 +166,7 @@ register(
 )
 register(
     id="gt-scene3",
-    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv3",
+    entry_point="ogbench.manipspace.envs.scene_env3:SceneEnv3",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
@@ -175,7 +175,7 @@ register(
 )
 register(
     id="gt-scene4",
-    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv4",
+    entry_point="ogbench.manipspace.envs.scene_env4:SceneEnv4",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
@@ -184,7 +184,7 @@ register(
 )
 register(
     id="gt-scene5",
-    entry_point="ogbench.manipspace.envs.scene_env:SceneEnv5",
+    entry_point="ogbench.manipspace.envs.scene_env5:SceneEnv5",
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",

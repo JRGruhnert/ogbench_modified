@@ -13,10 +13,10 @@ class DrawerObject(SceneObject):
     scaler = 18.0
     tolerance = 0.04
 
-    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), drawer_center=None, lock_rule=None):
+    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), drawer_center=None, locks=None):
         super().__init__(id, pos, euler)
         self.drawer_center = drawer_center or np.array([0.33, -0.24, 0.066])
-        self._lock_rule = lock_rule or {}
+        self._lock_rule = locks or {}
         self._target_val = 0.0
         if id > 0:
             self.joint_name = f"{self.joint_name}_{id}"

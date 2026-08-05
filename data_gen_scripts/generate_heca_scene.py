@@ -1,4 +1,5 @@
 import pathlib
+import time
 from collections import defaultdict
 
 import h5py
@@ -37,6 +38,8 @@ flags.DEFINE_float("p_random_action", 0, "Probability of selecting a random acti
 flags.DEFINE_integer("num_episodes", 200, "Number of episodes.")
 flags.DEFINE_integer("max_episode_steps", 1001, "Number of episodes.")
 flags.DEFINE_integer("image_size", 256, "Image size for observations.")
+flags.DEFINE_bool("dry_run", False, "Run data collection without saving to file.")
+flags.DEFINE_float("viewer_delay", 0.0, "Delay between steps in dry_run mode (for visual inspection).")
 
 
 def main(_):
@@ -93,13 +96,14 @@ def main(_):
     total_steps = 0
     num_episodes = FLAGS.num_episodes
 
-    save_path = FLAGS.save_path or "sample"
-    if not save_path.endswith(".h5"):
-        save_path += ".h5"
-    pathlib.Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-    save_file = h5py.File(save_path, "w")
-    datasets: dict = {}
-    written_steps = 0
+    if not FLAGS.dry_run:
+        save_path = FLAGS.save_path or "sample"
+        if not save_path.endswith(".h5"):
+            save_path += ".h5"
+        pathlib.Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        save_file = h5py.File(save_path, "w")
+        datasets: dict = {}
+        written_steps = 0
 
     def _flush_episode(ep_buf: dict):
         """Append one episode's data to the HDF5 file."""
@@ -122,6 +126,9 @@ def main(_):
         episode_buffer: dict = defaultdict(list)
         while True:
             ob, info = env.reset()
+
+            if FLAGS.dry_run:
+                env.unwrapped.launch_passive_viewer()
 
             # Stacking only possible with multiple cubes — hardcoded for now.
             p_stack = 0.5 if any(o.name.startswith("cube") for o in env.unwrapped.objects) else 0.0
@@ -176,6 +183,10 @@ def main(_):
 
                 ob = next_ob
                 step += 1
+                if FLAGS.dry_run:
+                    env.unwrapped.sync_passive_viewer()
+                    if FLAGS.viewer_delay > 0:
+                        time.sleep(FLAGS.viewer_delay)
 
             # Health check: discard episode if any free-body went out of workspace bounds.
             bounds = env.unwrapped._workspace_bounds
@@ -186,7 +197,10 @@ def main(_):
                     break
 
             if is_healthy:
-                _flush_episode(episode_buffer)
+                if FLAGS.dry_run:
+                    env.unwrapped.close_passive_viewer()
+                if not FLAGS.dry_run:
+                    _flush_episode(episode_buffer)
                 break
             else:
                 print("Unhealthy episode, retrying...", flush=True)
@@ -194,10 +208,12 @@ def main(_):
 
         total_steps += step
 
-    save_file.close()
+    if not FLAGS.dry_run:
+        save_file.close()
     print("Total steps:", total_steps)
     print("Done.")
-    print(f"  saved → {save_path}")
+    if not FLAGS.dry_run:
+        print(f"  saved → {save_path}")
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._arm_sampling_bounds = np.asarray([[0.25, -0.2, 0.20], [0.6, 0.2, 0.35]])
 
     def set_tasks(self):
-        raise NotImplementedError
+        self.task_infos = []
 
     def initialize_episode(self):
         self._data.qpos[self._arm_joint_ids] = self._home_qpos

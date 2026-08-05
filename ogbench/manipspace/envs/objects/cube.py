@@ -41,6 +41,9 @@ class CubeObject(SceneObject):
         xy = env.np_random.uniform(*bounds)
         env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
         env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
+        # Initialize mocap target to current position.
+        env._data.mocap_pos[self._target_mocap_id] = env._data.joint(self.joint_name).qpos[:3].copy()
+        env._data.mocap_quat[self._target_mocap_id] = env._data.joint(self.joint_name).qpos[3:].copy()
 
     def init_to_goal(self, env, task_info):
         xyz = task_info["goal"]["block_xyzs"][0]
@@ -83,7 +86,7 @@ class CubeObject(SceneObject):
             f"heca_cube_{i}_pos_ee": q.qpos[:3].copy(),
             f"heca_cube_{i}_rot": quat,
             f"heca_cube_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
-            f"heca_cube_{i}_ste": 1,
+            f"heca_cube_{i}_ste": 0,
         }
 
     def get_info_target(self, env):

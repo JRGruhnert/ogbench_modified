@@ -13,13 +13,13 @@ class WindowObject(SceneObject):
     scaler = 15.0
     tolerance = 0.04
 
-    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), lock_rule=None):
+    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), locks=None):
         super().__init__(id, pos, euler)
         if id > 0:
             self.joint_name = f"{self.joint_name}_{id}"
             self.site_name = f"{self.site_name}_{id}"
             self.target_site_name = f"{self.target_site_name}_{id}"
-        self._lock_rule = lock_rule or {}
+        self._lock_rule = locks or {}
         self._target_val = 0.0
 
     def is_closed(self, env):

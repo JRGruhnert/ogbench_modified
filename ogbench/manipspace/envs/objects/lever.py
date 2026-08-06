@@ -28,6 +28,7 @@ class LeverObject(SceneObject):
     def post_compilation(self, env):
         self._site_id = env._model.site(self.site_name).id
         self._target_site_id = env._model.site(self.target_site_name).id
+        self._body_id = env._model.body(self._jname("lever_link")).id
 
     def randomize(self, env):
         lo, hi = self.pos_range

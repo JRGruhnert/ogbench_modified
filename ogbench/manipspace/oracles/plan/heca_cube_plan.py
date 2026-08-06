@@ -24,40 +24,34 @@ class CubePlanOracle(PlanOracle):
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["pick"] = self.above(block_initial, 0.1 + np.random.uniform(0, 0.1))
-        poses["pick_start"] = block_initial
-        poses["pick_end"] = block_initial
-        poses["postpick"] = poses["pick"]
-        poses["place"] = self.above(block_goal, 0.1 + np.random.uniform(0, 0.1))
-        poses["place_start"] = block_goal
-        poses["place_end"] = block_goal
-        poses["postplace"] = poses["place"]
+        poses["approach"] = self.above(block_initial, 0.1)
+        poses["grasp"] = block_initial
+        poses["leave"] = poses["approach"]
+        poses["approach2"] = self.above(block_goal, 0.1)
+        poses["release"] = block_goal
+        poses["leave2"] = poses["approach2"]
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
-        times["pick"] = times["initial"] + self._dt
-        times["pick_start"] = times["pick"] + self._dt * 1.5
-        times["pick_end"] = times["pick_start"] + self._dt
-        times["postpick"] = times["pick_end"] + self._dt
-        times["clearance"] = times["postpick"] + self._dt
-        times["place"] = times["clearance"] + self._dt
-        times["place_start"] = times["place"] + self._dt * 1.5
-        times["place_end"] = times["place_start"] + self._dt
-        times["postplace"] = times["place_end"] + self._dt
-        times["final"] = times["postplace"] + self._dt
-        times = self.jitter_times(times, factor=0.2)
+        times["approach"] = self._dt
+        times["grasp"] = self._dt * 0.8
+        times["leave"] = self._dt * 0.8
+        times["approach2"] = self._dt
+        times["release"] = self._dt * 0.8
+        times["leave2"] = self._dt * 0.8
+        times["final"] = self._dt
 
-        # Grasps
-        grasps = self.build_grasps(times, {"pick_end", "place_end"})
+        # Grasp
+        grasps = self.build_grasps(times, {"grasp", "release"})
 
         # Postprocess
-        times, poses, grasps = self.hold_after_multiple(
+        times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            names=["grasp_end", "release_end"],
+            checkpoints=["grasp", "release"],
         )
         return times, poses, grasps
 

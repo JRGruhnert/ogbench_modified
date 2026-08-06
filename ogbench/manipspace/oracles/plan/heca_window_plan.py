@@ -9,8 +9,6 @@ class WindowPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        # Poses
-        poses = {}
         window_initial = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["window_initial"]),
             translation=plan_input["window_initial"].translation(),
@@ -19,38 +17,33 @@ class WindowPlanOracle(PlanOracle):
             obj_yaw=self.get_yaw(plan_input["window_initial"]),
             translation=plan_input["window_goal"].translation(),
         )
+        # Poses
+        poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(window_initial, 0.06)
-        poses["grasp_start"] = window_initial
-        poses["grasp_end"] = window_initial
+        poses["grasp"] = window_initial
         poses["move"] = window_goal
-        poses["release_start"] = window_goal
-        poses["release_end"] = window_goal
-        poses["clearance"] = self.above(window_goal, 0.06)
+        poses["release"] = self.above(window_goal, 0.06)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
-        times["approach"] = times["initial"] + self._dt
-        times["grasp_start"] = times["approach"] + self._dt * 0.5
-        times["grasp_end"] = times["grasp_start"] + self._dt * 0.5
-        times["move"] = times["grasp_end"] + self._dt * 0.5
-        times["release_start"] = times["move"] + self._dt * 0.5
-        times["release_end"] = times["release_start"] + self._dt * 0.5
-        times["clearance"] = times["release_end"] + self._dt * 0.5
-        times["final"] = times["clearance"] + self._dt
-        times = self.jitter_times(times)
+        times["approach"] = self._dt
+        times["grasp"] = self._dt * 0.5
+        times["move"] = self._dt * 0.5
+        times["release"] = self._dt * 0.5
+        times["final"] = self._dt
 
         # Grasps
-        grasps = self.build_grasps(times, {"grasp_end", "release_end"})
+        grasps = self.build_grasps(times, {"grasp", "release"})
 
         # Postprocess
-        times, poses, grasps = self.hold_after_multiple(
+        times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            names=["grasp_end", "release_end"],
+            checkpoints=["grasp", "release"],
         )
 
         return times, poses, grasps

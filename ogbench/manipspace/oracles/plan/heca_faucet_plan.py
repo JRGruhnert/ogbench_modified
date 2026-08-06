@@ -8,80 +8,89 @@ class FaucetPlanOracle(PlanOracle):
         super().__init__(*args, **kwargs)
         self._object_id = object_id
 
-    def compute_keyframes(self, plan_input):
-        faucet_initial = plan_input["faucet_initial"]
-        faucet_goal = plan_input["faucet_goal"]
-        init_knob_angle = plan_input["init_knob_angle"]
-        goal_knob_angle = plan_input["goal_knob_angle"]
-        center = plan_input["faucet_center"]
-        # Read handle radius from the model (scale-aware, matches XML after scaling).
-        radius = abs(
-            float(self._env.unwrapped._model.site("faucet_handle_center").pos[1])
-        )
+    def _arc_poses(
+        self,
+        faucet_initial,
+        center,
+        init_angle,
+        goal_angle,
+        n_arc=6,
+        push_offset=0.8,
+        radius=0.105,
+    ):
+        """Compute arc poses and approach pose for pushing the faucet handle.
 
-        # Push: close gripper, approach from outside the arc, push handle along.
-        n_arc = 6
-        arc_angles = np.linspace(init_knob_angle, goal_knob_angle, n_arc)
+        Returns (arc_poses, approach_pose, above_pose).
+        """
+        handle_z = faucet_initial.translation()[2]
+        base_yaw = self.get_yaw(faucet_initial)
+
+        arc_angles = np.linspace(init_angle, goal_angle, n_arc)
         arc_poses = []
         for angle in arc_angles:
             xy = center[:2] + radius * np.array([np.sin(angle), -np.cos(angle)])
-            pos = np.array([xy[0], xy[1], faucet_initial.translation()[2]])
-            arc_poses.append(self.to_pose(pos=pos, yaw=self.get_yaw(faucet_initial)))
+            pos = np.array([xy[0], xy[1], handle_z])
+            arc_poses.append(self.to_pose(pos=pos, yaw=base_yaw))
 
-        push_offset = 0.08
-        # Approach from the side opposite to the push direction.
-        # Tangential CCW: [cos(angle), sin(angle)], Tangential CW: [-cos(angle), -sin(angle)]
-        delta = goal_knob_angle - init_knob_angle
+        delta = goal_angle - init_angle
         if delta >= 0:
-            init_dir = np.array([-np.cos(init_knob_angle), -np.sin(init_knob_angle)])
+            init_dir = np.array([-np.cos(init_angle), -np.sin(init_angle)])
         else:
-            init_dir = np.array([np.cos(init_knob_angle), np.sin(init_knob_angle)])
-        approach_xy = faucet_initial.translation()[:2] + init_dir * push_offset
-        handle_z = faucet_initial.translation()[2]
-        approach_pos = np.array([approach_xy[0], approach_xy[1], handle_z])
-        above_init_pos = np.array([approach_xy[0], approach_xy[1], handle_z + 0.10])
+            init_dir = np.array([np.cos(init_angle), np.sin(init_angle)])
+        approach_xy = (
+            center[:2]
+            + radius * np.array([np.sin(init_angle), -np.cos(init_angle)])
+            + init_dir * push_offset
+        )
+        approach_pose = self.to_pose(
+            pos=np.array([approach_xy[0], approach_xy[1], handle_z]),
+            yaw=base_yaw,
+        )
+
+        return arc_poses, approach_pose
+
+    def compute_keyframes(self, plan_input):
+
+        arc_poses, approach_pose = self._arc_poses(
+            plan_input["faucet_initial"],
+            plan_input["faucet_center"],
+            plan_input["init_knob_angle"],
+            plan_input["goal_knob_angle"],
+        )
 
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["above"] = self.to_pose(
-            pos=above_init_pos, yaw=self.get_yaw(faucet_initial)
-        )
-        poses["approach"] = self.to_pose(
-            pos=approach_pos, yaw=self.get_yaw(faucet_initial)
-        )
-        for i in range(n_arc):
-            poses[f"arc_{i}"] = arc_poses[i]
-        poses["lift"] = self.to_pose(
-            pos=arc_poses[-1].translation() + np.array([0, 0, 0.10]),
-            yaw=self.get_yaw(arc_poses[-1]),
-        )
+        poses["approach"] = self.above(approach_pose, 0.10)
+        poses["down"] = approach_pose
+        for i, p in enumerate(arc_poses):
+            poses[f"arc_{i}"] = p
+        poses["lift"] = self.above(arc_poses[-1], 0.10)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
-        times["above"] = times["initial"] + self._dt
-        times["approach"] = times["above"] + self._dt * 0.5
-        t = times["approach"]
-        for i in range(n_arc):
-            times[f"arc_{i}"] = t + self._dt * 0.4
-            t = times[f"arc_{i}"]
-        times["lift"] = times[f"arc_{n_arc-1}"] + self._dt * 0.5
-        times["final"] = times["lift"] + self._dt
-        times = self.jitter_times(times)
+        times["approach"] = self._dt
+        times["down"] = self._dt * 0.5
+        for i in range(len(arc_poses)):
+            times[f"arc_{i}"] = self._dt * 0.4
+        times["lift"] = self._dt * 0.5
+        times["final"] = self._dt
 
+        # Grasps
         grasps = {}
         for name in times:
-            grasps[name] = 1.0  # gripper always closed
+            grasps[name] = 1.0
 
         # Postprocess
-        times, poses, grasps = self.hold_after_multiple(
+        times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            names=["grasp_end", "release_end"],
+            checkpoints=["down", f"arc_{len(arc_poses) -1}"],
         )
+
         return times, poses, grasps
 
     def reset(self, ob, info):

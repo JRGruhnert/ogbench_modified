@@ -13,31 +13,28 @@ class ButtonPlanOracle(PlanOracle):
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["press_start"] = self.above(
-            plan_input["button"], 0.06 + np.random.uniform(0, 0.1)
-        )
-        poses["press"] = self.above(plan_input["button"], -0.025)
-        poses["press_end"] = poses["press_start"]
+        poses["approach"] = self.above(plan_input["button"], 0.06)
+        poses["press"] = self.above(plan_input["button"], -0.025, noise=0.0)
+        poses["leave"] = poses["approach"]
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
-        times["press_start"] = times["initial"] + self._dt
-        times["press"] = times["press_start"] + self._dt * 0.8
-        times["press_end"] = times["press"] + self._dt * 0.8
-        times["final"] = times["press_end"] + self._dt * 1.25
-        times = self.jitter_times(times)
+        times["approach"] = self._dt
+        times["press"] = self._dt * 0.8
+        times["leave"] = self._dt * 0.8
+        times["final"] = self._dt * 1.25
 
         # Grasps
-        grasps = self.build_grasps(times, {"press_start", "final"})
+        grasps = self.build_grasps(times, {"approach", "final"})
 
         # Postprocess
-        times, poses, grasps = self.hold_after_multiple(
+        times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            names=["grasp_end", "release_end"],
+            checkpoints=["press"],
         )
         return times, poses, grasps
 

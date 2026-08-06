@@ -8,47 +8,71 @@ class LeverPlanOracle(PlanOracle):
         super().__init__(*args, **kwargs)
         self._object_id = object_id
 
+    def _arc_poses(
+        self, lever_initial, center, init_angle, goal_angle, n_arc=6, radius=0.12
+    ):
+        """Compute arc poses for the lever handle moving in a vertical arc.
+
+        The lever rotates around the X axis (hinge axis), so the handle moves
+        in the YZ plane.
+
+        Returns (arc_poses, approach_pose).
+        """
+        base_yaw = self.get_yaw(lever_initial)
+
+        arc_angles = np.linspace(init_angle, goal_angle, n_arc)
+        arc_poses = []
+        for angle in arc_angles:
+            y = center[1] - radius * np.cos(angle)
+            z = center[2] - radius * np.sin(angle)
+            pos = np.array([center[0], y, z])
+            arc_poses.append(self.to_pose(pos=pos, yaw=base_yaw))
+
+        # First arc pose (initial handle position).
+        approach_pose = arc_poses[0]
+
+        return arc_poses, approach_pose
+
     def compute_keyframes(self, plan_input):
-        lever_initial = self.equal_yaw(
-            obj_yaw=self.get_yaw(plan_input["lever_initial"]),
-            translation=plan_input["lever_initial"].translation(),
+        arc_poses, approach_pose = self._arc_poses(
+            plan_input["lever_initial"],
+            plan_input["lever_center"],
+            plan_input["init_angle"],
+            plan_input["goal_angle"],
         )
-        lever_goal = self.equal_yaw(
-            obj_yaw=self.get_yaw(plan_input["lever_initial"]),
-            translation=plan_input["lever_goal"].translation(),
-        )
+        n_arc = len(arc_poses)
+
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["approach"] = self.above(lever_initial, 0.08)
-        poses["grasp_start"] = lever_initial
-        poses["grasp_end"] = lever_initial
-        poses["move"] = lever_goal
-        poses["release"] = lever_goal
-        poses["clearance"] = self.above(lever_goal, 0.08)
+        poses["approach"] = self.above(approach_pose, 0.08)
+        poses["grasp"] = approach_pose
+        for i, p in enumerate(arc_poses):
+            poses[f"arc_{i}"] = p
+        poses["release"] = arc_poses[-1]
+        poses["leave"] = self.above(arc_poses[-1], 0.08)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
-        times["approach"] = times["initial"] + self._dt
-        times["grasp_start"] = times["approach"] + self._dt * 0.5
-        times["grasp_end"] = times["grasp_start"] + self._dt * 0.5
-        times["move"] = times["grasp_end"] + self._dt * 0.5
-        times["release"] = times["move"] + self._dt * 0.5
-        times["clearance"] = times["release"] + self._dt * 0.5
-        times["final"] = times["clearance"] + self._dt
-        times = self.jitter_times(times)
+        times["approach"] = self._dt
+        times["grasp"] = self._dt * 0.5
+        for i in range(n_arc):
+            times[f"arc_{i}"] = self._dt * 0.4
+        times["release"] = self._dt * 0.5
+        times["clearance"] = self._dt * 0.5
+        times["final"] = self._dt
 
         # Grasps
-        grasps = self.build_grasps(times, {"grasp_end", "release"})
+        grasps = self.build_grasps(times, {"grasp", "release"})
 
         # Postprocess
-        times, poses, grasps = self.hold_after_multiple(
+        times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            names=["grasp_end", "release_end"],
+            checkpoints=["grasp", f"arc_{n_arc - 1}"],
         )
         return times, poses, grasps
 
@@ -61,6 +85,9 @@ class LeverPlanOracle(PlanOracle):
             target_handle_pos = env._data.site_xpos[
                 env.get_object(f"lever_{i}")._target_site_id
             ].copy()
+
+        lever = env.get_object(f"lever_{i}")
+        lever_center = env._data.xpos[lever._body_id].copy()
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -79,6 +106,9 @@ class LeverPlanOracle(PlanOracle):
                 pos=target_handle_pos,
                 yaw=info[f"heca_lever_{i}_yaw"][0],
             ),
+            "lever_center": lever_center,
+            "init_angle": env._data.joint(lever.joint_name).qpos[0],
+            "goal_angle": lever._target_val,
         }
 
         self.finalize_plan(plan_input, info)

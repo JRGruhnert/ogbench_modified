@@ -18,39 +18,36 @@ class DrawerPlanOracle(PlanOracle):
             obj_yaw=self.get_yaw(plan_input["drawer_initial"]),
             translation=plan_input["drawer_goal"].translation(),
         )
+
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["approach"] = self.above(drawer_initial, 0.12 + np.random.uniform(0, 0.1))
-        poses["grasp_start"] = drawer_initial
-        poses["grasp_end"] = drawer_initial
+        poses["approach"] = self.above(drawer_initial, 0.06)
+        poses["grasp"] = drawer_initial
         poses["move"] = drawer_goal
-        poses["release"] = drawer_goal
-        poses["clearance"] = self.above(drawer_goal, 0.12 + np.random.uniform(0, 0.1))
+        poses["release"] = self.above(drawer_goal, 0.06)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
-        times["approach"] = times["initial"] + self._dt
-        times["grasp_start"] = times["approach"] + self._dt * 0.5
-        times["grasp_end"] = times["grasp_start"] + self._dt * 0.5
-        times["move"] = times["grasp_end"] + self._dt * 0.5
-        times["release"] = times["move"] + self._dt * 0.5
-        times["clearance"] = times["release"] + self._dt * 0.5
-        times["final"] = times["clearance"] + self._dt
-        times = self.jitter_times(times)
+        times["approach"] = self._dt
+        times["grasp"] = self._dt * 0.5
+        times["move"] = self._dt * 0.5
+        times["release"] = self._dt * 0.5
+        times["final"] = self._dt
 
         # Grasps
-        grasps = self.build_grasps(times, {"grasp_end", "release"})
+        grasps = self.build_grasps(times, {"grasp", "release"})
 
         # Postprocess
-        times, poses, grasps = self.hold_after_multiple(
+        times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            names=["grasp_end", "release_end"],
+            checkpoints=["grasp", "release"],
         )
+
         return times, poses, grasps
 
     def reset(self, ob, info):

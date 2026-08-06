@@ -52,20 +52,53 @@ class PlanOracle:
                 inserted = True
         return new_times, new_poses, new_grasps
 
-    def hold_after_multiple(
-        self, times, poses, grasps, names, duration=0.5, neutral_yaw=True
+    def process_keyframes(
+        self,
+        times,
+        poses,
+        grasps,
+        checkpoints,
+        duration=0.5,
+        neutral_yaw=True,
+        jitter=True,
+        jitter_factor=0.1,
     ):
-        if neutral_yaw:
-            times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
-        for name in names:
+        """Insert hold keyframes after each name in `names`.
+
+        Automatically converts delta times to absolute, optionally inserts
+        neutral yaw prephase, applies holds, and optionally jitters.
+        """
+        times = self.make_absolute(times)
+        # if neutral_yaw:
+        #    times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
+        #    grasps["neutral"] = grasps["initial"]
+        if jitter:
+            times = self.jitter_times(times, factor=jitter_factor)
+        for name in checkpoints:
             times, poses, grasps = self.hold_after(times, poses, grasps, name, duration)
+        # print("times:", {k: round(v, 2) for k, v in times.items()})
+        # print("grasps:", grasps)
         return times, poses, grasps
 
-    def above(self, pose, z):
+    def make_absolute(self, times):
+        """Convert delta times to absolute times.
+
+        The first key is treated as t=0. Each subsequent key's value is added
+        to the previous absolute time. This lets planners write deltas instead
+        of accumulating absolute times manually.
+        """
+        abs_times = {}
+        prev = 0.0
+        for key, delta in times.items():
+            prev = prev + delta
+            abs_times[key] = prev
+        return abs_times
+
+    def above(self, pose, z, noise=0.05):
         return (
             lie.SE3.from_rotation_and_translation(
                 rotation=lie.SO3.identity(),
-                translation=np.array([0.0, 0.0, z]),
+                translation=np.array([0.0, 0.0, z + np.random.uniform(0, noise)]),
             )
             @ pose
         )
@@ -92,6 +125,9 @@ class PlanOracle:
             translation=pos,
         )
 
+    def compute_keyframes(self, plan_input):
+        raise NotImplementedError
+
     def finalize_plan(self, plan_input, info):
         """Call compute_keyframes, convert dicts to lists, and generate the plan."""
         times, poses, grasps = self.compute_keyframes(plan_input)
@@ -105,9 +141,9 @@ class PlanOracle:
         self._plan = self.compute_plan(times, poses, grasps)
 
     def jitter_times(self, times, factor=0.1):
-        """Add temporal noise to all keyframe times except 'initial'."""
+        """Add temporal noise to all keyframe times except 'initial' and hold frames."""
         for name in times:
-            if name != "initial":
+            if name != "initial" and not name.endswith("_hold"):
                 times[name] += np.random.uniform(-1, 1) * self._dt * factor
         return times
 
@@ -197,6 +233,7 @@ class PlanOracle:
     def select_action(self, ob, info):
         # Find the current plan index.
         cur_plan_idx = int((info["time"][0] - self._t_init + 1e-7) // self._env_dt)
+        # print(cur_plan_idx, self._t_init)
         if cur_plan_idx >= len(self._plan) - 1:
             cur_plan_idx = len(self._plan) - 1
             self._done = True

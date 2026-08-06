@@ -32,24 +32,19 @@ class PlanOracle:
         self._t_max = None
         self._plan = None
 
-    def hold_after(self, times, poses, grasps, name, duration=0.5):
-        """Insert a hold keyframe after `name`, keeping the same pose/grasp for `duration` seconds.
-
-        Returns new dicts with the hold keyframe inserted. All subsequent keyframes
-        are shifted by `duration`.
-        """
+    def hold_after(self, times, poses, grasps, checkpoints, duration=0.5):
         new_times, new_poses, new_grasps = {}, {}, {}
-        inserted = False
+        additional = 0.0
         for key in times:
-            new_times[key] = times[key] if not inserted else times[key] + duration
+            new_times[key] = times[key] + additional
             new_poses[key] = poses[key]
             new_grasps[key] = grasps[key]
-            if key == name:
+            if key in checkpoints:
+                additional += duration
                 hold_key = f"{key}_hold"
-                new_times[hold_key] = times[key] + duration
+                new_times[hold_key] = times[key] + additional
                 new_poses[hold_key] = poses[key]
                 new_grasps[hold_key] = grasps[key]
-                inserted = True
         return new_times, new_poses, new_grasps
 
     def process_keyframes(
@@ -59,38 +54,24 @@ class PlanOracle:
         grasps,
         checkpoints,
         duration=0.5,
-        neutral_yaw=True,
         jitter=True,
         jitter_factor=0.1,
     ):
-        """Insert hold keyframes after each name in `names`.
-
-        Automatically converts delta times to absolute, optionally inserts
-        neutral yaw prephase, applies holds, and optionally jitters.
-        """
         times = self.make_absolute(times)
-        # if neutral_yaw:
-        #    times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
-        #    grasps["neutral"] = grasps["initial"]
         if jitter:
             times = self.jitter_times(times, factor=jitter_factor)
-        for name in checkpoints:
-            times, poses, grasps = self.hold_after(times, poses, grasps, name, duration)
+        times, poses, grasps = self.hold_after(
+            times, poses, grasps, checkpoints, duration
+        )
         # print("times:", {k: round(v, 2) for k, v in times.items()})
         # print("grasps:", grasps)
         return times, poses, grasps
 
     def make_absolute(self, times):
-        """Convert delta times to absolute times.
-
-        The first key is treated as t=0. Each subsequent key's value is added
-        to the previous absolute time. This lets planners write deltas instead
-        of accumulating absolute times manually.
-        """
         abs_times = {}
         prev = 0.0
         for key, delta in times.items():
-            prev = prev + delta
+            prev += delta
             abs_times[key] = prev
         return abs_times
 
@@ -102,22 +83,6 @@ class PlanOracle:
             )
             @ pose
         )
-
-    def add_neutral_yaw_prephase(self, effector_initial, times, poses):
-        """Insert a keyframe that rotates the effector to yaw=0 before the main plan."""
-        neutral_pose = self.to_pose(
-            pos=effector_initial.translation(),
-            yaw=0.0,
-        )
-        shift = self._dt * 0.5
-        # Shift all times except initial to make room.
-        for key in times:
-            if key != "initial":
-                times[key] += shift
-        # Insert neutral yaw keyframe right after initial.
-        times["neutral"] = times["initial"] + shift
-        poses["neutral"] = neutral_pose
-        return times, poses
 
     def to_pose(self, pos, yaw):
         return lie.SE3.from_rotation_and_translation(
@@ -143,7 +108,7 @@ class PlanOracle:
     def jitter_times(self, times, factor=0.1):
         """Add temporal noise to all keyframe times except 'initial' and hold frames."""
         for name in times:
-            if name != "initial" and not name.endswith("_hold"):
+            if name != "initial":
                 times[name] += np.random.uniform(-1, 1) * self._dt * factor
         return times
 

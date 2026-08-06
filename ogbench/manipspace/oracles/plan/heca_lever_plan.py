@@ -40,7 +40,6 @@ class LeverPlanOracle(PlanOracle):
             plan_input["init_angle"],
             plan_input["goal_angle"],
         )
-        n_arc = len(arc_poses)
 
         # Poses
         poses = {}
@@ -58,7 +57,7 @@ class LeverPlanOracle(PlanOracle):
         times["initial"] = 0.0
         times["approach"] = self._dt
         times["grasp"] = self._dt * 0.5
-        for i in range(n_arc):
+        for i in range(len(arc_poses)):
             times[f"arc_{i}"] = self._dt * 0.4
         times["release"] = self._dt * 0.5
         times["clearance"] = self._dt * 0.5
@@ -72,7 +71,7 @@ class LeverPlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["grasp", f"arc_{n_arc - 1}"],
+            checkpoints=["grasp", f"arc_{len(arc_poses) - 1}"],
         )
         return times, poses, grasps
 

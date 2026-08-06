@@ -11,17 +11,13 @@ class DrawerPlanOracle(PlanOracle):
     def compute_keyframes(self, plan_input):
         # Poses.
         poses = {}
-        drawer_initial = self.shortest_yaw(
-            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
+        drawer_initial = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["drawer_initial"]),
             translation=plan_input["drawer_initial"].translation(),
-            n=2,
         )
-        drawer_goal = self.shortest_yaw(
-            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
+        drawer_goal = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["drawer_initial"]),
             translation=plan_input["drawer_goal"].translation(),
-            n=2,
         )
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(drawer_initial, 0.12)
@@ -42,7 +38,8 @@ class DrawerPlanOracle(PlanOracle):
         times["release"] = times["move"] + self._dt * 0.5
         times["clearance"] = times["release"] + self._dt * 0.5
         times["final"] = times["clearance"] + self._dt
-        self.jitter_times(times)
+        times = self.jitter_times(times)
+        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
         # Grasps.
         grasps = self.build_grasps(times, {"grasp_end", "release"})

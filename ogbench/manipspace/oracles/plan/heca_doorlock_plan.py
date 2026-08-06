@@ -10,17 +10,13 @@ class DoorlockPlanOracle(PlanOracle):
 
     def compute_keyframes(self, plan_input):
         poses = {}
-        doorlock_initial = self.shortest_yaw(
-            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
+        doorlock_initial = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["doorlock_initial"]),
             translation=plan_input["doorlock_initial"].translation(),
-            n=2,
         )
-        doorlock_goal = self.shortest_yaw(
-            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
+        doorlock_goal = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["doorlock_initial"]),
             translation=plan_input["doorlock_goal"].translation(),
-            n=2,
         )
 
         # Doorlock is now a top-opening chest: closing = push down, opening = pull up.
@@ -40,7 +36,8 @@ class DoorlockPlanOracle(PlanOracle):
             times["push"] = times["approach"] + self._dt * 0.5
             times["retreat"] = times["push"] + self._dt * 0.5
             times["final"] = times["retreat"] + self._dt
-            self.jitter_times(times)
+            times = self.jitter_times(times)
+            times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
             grasps = {}
             for name in times.keys():
@@ -66,14 +63,10 @@ class DoorlockPlanOracle(PlanOracle):
             times["release"] = times["pull"] + self._dt * 0.5
             times["clearance"] = times["release"] + self._dt * 0.5
             times["final"] = times["clearance"] + self._dt
-            self.jitter_times(times)
+            times = self.jitter_times(times)
+            times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
-            grasps = {}
-            g = 0.0
-            for name in times.keys():
-                if name in {"grasp_end", "release"}:
-                    g = 1.0 - g
-                grasps[name] = g
+            grasps = self.build_grasps(times, {"press_start", "final"})
 
         return times, poses, grasps
 

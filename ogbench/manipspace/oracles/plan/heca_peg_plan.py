@@ -48,22 +48,10 @@ class PegPlanOracle(PlanOracle):
         times["place_end"] = times["place_start"] + self._dt
         times["postplace"] = times["place_end"] + self._dt
         times["final"] = times["postplace"] + self._dt
+        times = self.jitter_times(times, factor=0.2)
+        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
-        self.add_neutral_yaw_prephase(poses["initial"], times, poses)
-
-        self.add_dwell("postpick_dwell", "postpick", times, poses, 0.4)
-        self.add_dwell("place_end_dwell", "place_end", times, poses, 0.4)
-
-        for time in times.keys():
-            if time != "initial" and not time.endswith("_dwell"):
-                times[time] += np.random.uniform(-1, 1) * self._dt * 0.2
-
-        grasps = {}
-        g = 0.0
-        for name in times.keys():
-            if name in {"pick_end", "place_end"}:
-                g = 1.0 - g
-            grasps[name] = g
+        grasps = self.build_grasps(times, {"pick_end", "place_end"})
 
         return times, poses, grasps
 
@@ -98,12 +86,4 @@ class PegPlanOracle(PlanOracle):
             "ring_center": info[f"heca_peg_{i}_pos_base"],
         }
 
-        times, poses, grasps = self.compute_keyframes(plan_input)
-        poses = [poses[name] for name in times.keys()]
-        grasps = [grasps[name] for name in times.keys()]
-        times = list(times.values())
-
-        self._t_init = info["time"][0]
-        self._t_max = times[-1]
-        self._done = False
-        self._plan = self.compute_plan(times, poses, grasps)
+        self.finalize_plan(plan_input, info)

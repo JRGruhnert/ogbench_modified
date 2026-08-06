@@ -14,8 +14,7 @@ class CubePlanOracle(PlanOracle):
         poses = {}
 
         # Pick.
-        block_initial = self.shortest_yaw(
-            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
+        block_initial = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["block_initial"]),
             translation=plan_input["block_initial"].translation(),
         )
@@ -26,8 +25,7 @@ class CubePlanOracle(PlanOracle):
         poses["postpick"] = poses["pick"]
 
         # Place.
-        block_goal = self.shortest_yaw(
-            eff_yaw=self.get_yaw(poses["postpick"]),
+        block_goal = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["block_goal"]),
             translation=plan_input["block_goal"].translation(),
         )
@@ -60,11 +58,11 @@ class CubePlanOracle(PlanOracle):
         times["place_end"] = times["place_start"] + self._dt
         times["postplace"] = times["place_end"] + self._dt
         times["final"] = times["postplace"] + self._dt
-        self.jitter_times(times, factor=0.2)
+        times = self.jitter_times(times, factor=0.2)
+        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
         # Grasps.
         grasps = self.build_grasps(times, {"pick_end", "place_end"})
-        print(poses)
         return times, poses, grasps
 
     def reset(self, ob, info):
@@ -77,7 +75,6 @@ class CubePlanOracle(PlanOracle):
             cube = env.get_object(f"cube_{i}")
             target_block_pos = env._data.mocap_pos[cube._target_mocap_id].copy()
             target_block_yaw = np.array([0.0])
-            print(target_block_pos)
 
         plan_input = {
             "effector_initial": self.to_pose(

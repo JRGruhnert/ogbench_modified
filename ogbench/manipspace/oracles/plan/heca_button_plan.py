@@ -10,7 +10,7 @@ class ButtonPlanOracle(PlanOracle):
         self._gripper_always_closed = gripper_always_closed
 
     def compute_keyframes(self, plan_input):
-        # Poses.
+        # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["press_start"] = self.above(plan_input["button"], 0.06)
@@ -18,7 +18,7 @@ class ButtonPlanOracle(PlanOracle):
         poses["press_end"] = poses["press_start"]
         poses["final"] = plan_input["effector_goal"]
 
-        # Times.
+        # Times
         times = {}
         distance = np.linalg.norm(
             poses["initial"].translation() - poses["press_start"].translation()
@@ -28,19 +28,11 @@ class ButtonPlanOracle(PlanOracle):
         times["press"] = times["press_start"] + self._dt * 0.8
         times["press_end"] = times["press"] + self._dt * 0.8
         times["final"] = times["press_end"] + self._dt * 1.25
-        self.jitter_times(times)
+        times = self.jitter_times(times)
+        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
-        # Grasps.
-        grasps = {}
-        if self._gripper_always_closed:
-            g = 1.0
-        else:
-            g = 0.0
-        for name in times.keys():
-            if not self._gripper_always_closed:
-                if name in {"press_start", "final"}:
-                    g = 1.0 - g
-            grasps[name] = g
+        # Grasps
+        grasps = self.build_grasps(times, {"press_start", "final"})
 
         return times, poses, grasps
 

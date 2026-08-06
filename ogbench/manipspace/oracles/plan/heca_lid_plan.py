@@ -20,19 +20,16 @@ class LidPlanOracle(PlanOracle):
             yaw=grab_yaw,
         )
         poses["initial"] = plan_input["effector_initial"]
-        poses["pick"] = self.above(lid_initial, 0.12 + np.random.uniform(0, 0.08))
+        poses["pick"] = self.above(lid_initial, 0.12)
         poses["pick_start"] = lid_initial
         poses["pick_end"] = lid_initial
         poses["postpick"] = poses["pick"]
 
-        # Place — go above target, descend, release.
-        lid_goal = self.shortest_yaw(
-            eff_yaw=self.get_yaw(poses["postpick"]),
+        lid_goal = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["lid_goal"]),
             translation=plan_input["lid_goal"].translation(),
-            n=2,
         )
-        poses["place"] = self.above(lid_goal, 0.12 + np.random.uniform(0, 0.08))
+        poses["place"] = self.above(lid_goal, 0.12)
         poses["place_start"] = lid_goal
         poses["place_end"] = lid_goal
         poses["postplace"] = poses["place"]
@@ -50,23 +47,10 @@ class LidPlanOracle(PlanOracle):
         times["place_end"] = times["place_start"] + self._dt
         times["postplace"] = times["place_end"] + self._dt
         times["final"] = times["postplace"] + self._dt
+        times = self.jitter_times(times, factor=0.2)
+        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
-        self.add_neutral_yaw_prephase(poses["initial"], times, poses)
-
-        self.add_dwell("postpick_dwell", "postpick", times, poses, 0.4)
-        self.add_dwell("place_end_dwell", "place_end", times, poses, 0.4)
-
-        for time in times.keys():
-            if time != "initial" and not time.endswith("_dwell"):
-                times[time] += np.random.uniform(-1, 1) * self._dt * 0.2
-
-        # Grasps.
-        g = 0.0
-        grasps = {}
-        for name in times.keys():
-            if name in {"pick_end", "place_end"}:
-                g = 1.0 - g
-            grasps[name] = g
+        grasps = self.build_grasps(times, {"pick_end", "place_end"})
 
         return times, poses, grasps
 
@@ -100,12 +84,4 @@ class LidPlanOracle(PlanOracle):
             ),
         }
 
-        times, poses, grasps = self.compute_keyframes(plan_input)
-        poses = [poses[name] for name in times.keys()]
-        grasps = [grasps[name] for name in times.keys()]
-        times = list(times.values())
-
-        self._t_init = info["time"][0]
-        self._t_max = times[-1]
-        self._done = False
-        self._plan = self.compute_plan(times, poses, grasps)
+        self.finalize_plan(plan_input, info)

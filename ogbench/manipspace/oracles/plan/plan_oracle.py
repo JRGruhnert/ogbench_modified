@@ -34,14 +34,14 @@ class PlanOracle:
 
     def hold_after(self, times, poses, grasps, name, duration=0.5):
         """Insert a hold keyframe after `name`, keeping the same pose/grasp for `duration` seconds.
-        
+
         Returns new dicts with the hold keyframe inserted. All subsequent keyframes
         are shifted by `duration`.
         """
         new_times, new_poses, new_grasps = {}, {}, {}
         inserted = False
         for key in times:
-            new_times[key] = times[key]
+            new_times[key] = times[key] if not inserted else times[key] + duration
             new_poses[key] = poses[key]
             new_grasps[key] = grasps[key]
             if key == name:
@@ -50,9 +50,16 @@ class PlanOracle:
                 new_poses[hold_key] = poses[key]
                 new_grasps[hold_key] = grasps[key]
                 inserted = True
-            elif inserted:
-                new_times[key] += duration
         return new_times, new_poses, new_grasps
+
+    def hold_after_multiple(
+        self, times, poses, grasps, names, duration=0.5, neutral_yaw=True
+    ):
+        if neutral_yaw:
+            times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
+        for name in names:
+            times, poses, grasps = self.hold_after(times, poses, grasps, name, duration)
+        return times, poses, grasps
 
     def above(self, pose, z):
         return (
@@ -62,19 +69,6 @@ class PlanOracle:
             )
             @ pose
         )
-
-    def add_dwell(self, name, prev_name, times, poses, duration):
-        """Add a dwell keyframe that holds at the previous pose for a given duration.
-
-        Args:
-            name: Name for the new dwell keyframe.
-            prev_name: Name of the keyframe to dwell at (copies its pose).
-            times: Times dict to add the dwell time to.
-            poses: Poses dict to add the dwell pose to.
-            duration: How long to dwell (in seconds).
-        """
-        poses[name] = poses[prev_name]
-        times[name] = times[prev_name] + duration
 
     def add_neutral_yaw_prephase(self, effector_initial, times, poses):
         """Insert a keyframe that rotates the effector to yaw=0 before the main plan."""
@@ -90,6 +84,7 @@ class PlanOracle:
         # Insert neutral yaw keyframe right after initial.
         times["neutral"] = times["initial"] + shift
         poses["neutral"] = neutral_pose
+        return times, poses
 
     def to_pose(self, pos, yaw):
         return lie.SE3.from_rotation_and_translation(
@@ -114,6 +109,7 @@ class PlanOracle:
         for name in times:
             if name != "initial":
                 times[name] += np.random.uniform(-1, 1) * self._dt * factor
+        return times
 
     def build_grasps(self, times, toggle_names):
         """Build a grasps dict from keyframe names, toggling 0↔1 at each toggle_name."""

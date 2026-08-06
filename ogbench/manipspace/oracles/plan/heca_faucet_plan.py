@@ -69,8 +69,8 @@ class FaucetPlanOracle(PlanOracle):
         times["dwell"] = t + self._dt * 0.5
         times["lift"] = times["dwell"] + self._dt * 0.5
         times["final"] = times["lift"] + self._dt
-        self.add_neutral_yaw_prephase(poses["initial"], times, poses)
-        self.jitter_times(times)
+        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
+        times = self.jitter_times(times)
 
         grasps = {}
         for name in times:

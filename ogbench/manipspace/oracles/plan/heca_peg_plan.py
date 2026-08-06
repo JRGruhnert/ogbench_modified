@@ -10,33 +10,31 @@ class PegPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        poses = {}
-
-        # Pick — go above the peg handle, descend, grab.
         grab_yaw = self.get_yaw(plan_input["peg_initial"]) + np.pi / 2
         peg_initial = self.to_pose(
             pos=plan_input["peg_initial"].translation(),
             yaw=grab_yaw,
         )
-        poses["initial"] = plan_input["effector_initial"]
-        poses["pick"] = self.above(peg_initial, 0.12 + np.random.uniform(0, 0.08))
-        poses["pick_start"] = peg_initial
-        poses["pick_end"] = peg_initial
-        poses["postpick"] = poses["pick"]
-
-        # Place — go above target + offset so the ring lands on target.
         handle_pos = plan_input["peg_initial"].translation()
         ring_center = plan_input["ring_center"]
         offset = handle_pos - ring_center
         place_pos = plan_input["peg_goal"].translation() + offset
         peg_goal = self.to_pose(pos=place_pos, yaw=grab_yaw)
-        poses["place"] = self.above(peg_goal, 0.12 + np.random.uniform(0, 0.08))
+
+        # Poses
+        poses = {}
+        poses["initial"] = plan_input["effector_initial"]
+        poses["pick"] = self.above(peg_initial, 0.12)
+        poses["pick_start"] = peg_initial
+        poses["pick_end"] = peg_initial
+        poses["postpick"] = poses["pick"]
+        poses["place"] = self.above(peg_goal, 0.12)
         poses["place_start"] = peg_goal
         poses["place_end"] = peg_goal
         poses["postplace"] = poses["place"]
         poses["final"] = plan_input["effector_goal"]
 
-        # Times.
+        # Times
         times = {}
         times["initial"] = 0.0
         times["pick"] = times["initial"] + self._dt
@@ -49,10 +47,17 @@ class PegPlanOracle(PlanOracle):
         times["postplace"] = times["place_end"] + self._dt
         times["final"] = times["postplace"] + self._dt
         times = self.jitter_times(times, factor=0.2)
-        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
+        # Grasp
         grasps = self.build_grasps(times, {"pick_end", "place_end"})
 
+        # Postprocess
+        times, poses, grasps = self.hold_after_multiple(
+            times,
+            poses,
+            grasps,
+            names=["grasp_end", "release_end"],
+        )
         return times, poses, grasps
 
     def reset(self, ob, info):

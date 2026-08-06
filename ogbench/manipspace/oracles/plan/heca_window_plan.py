@@ -9,7 +9,7 @@ class WindowPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        # Poses.
+        # Poses
         poses = {}
         window_initial = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["window_initial"]),
@@ -29,7 +29,7 @@ class WindowPlanOracle(PlanOracle):
         poses["clearance"] = self.above(window_goal, 0.06)
         poses["final"] = plan_input["effector_goal"]
 
-        # Times.
+        # Times
         times = {}
         times["initial"] = 0.0
         times["approach"] = times["initial"] + self._dt
@@ -42,9 +42,10 @@ class WindowPlanOracle(PlanOracle):
         times["final"] = times["clearance"] + self._dt
         times = self.jitter_times(times)
 
-        # Grasps.
+        # Grasps
         grasps = self.build_grasps(times, {"grasp_end", "release_end"})
 
+        # Postprocess
         times, poses, grasps = self.hold_after_multiple(
             times,
             poses,

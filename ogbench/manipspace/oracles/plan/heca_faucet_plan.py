@@ -15,7 +15,9 @@ class FaucetPlanOracle(PlanOracle):
         goal_knob_angle = plan_input["goal_knob_angle"]
         center = plan_input["faucet_center"]
         # Read handle radius from the model (scale-aware, matches XML after scaling).
-        radius = abs(float(self._env.unwrapped._model.site("faucet_handle_center").pos[1]))
+        radius = abs(
+            float(self._env.unwrapped._model.site("faucet_handle_center").pos[1])
+        )
 
         # Push: close gripper, approach from outside the arc, push handle along.
         n_arc = 6
@@ -31,33 +33,32 @@ class FaucetPlanOracle(PlanOracle):
         # Tangential CCW: [cos(angle), sin(angle)], Tangential CW: [-cos(angle), -sin(angle)]
         delta = goal_knob_angle - init_knob_angle
         if delta >= 0:
-            # Pushing CCW, approach from CW side.
             init_dir = np.array([-np.cos(init_knob_angle), -np.sin(init_knob_angle)])
         else:
-            # Pushing CW, approach from CCW side.
             init_dir = np.array([np.cos(init_knob_angle), np.sin(init_knob_angle)])
         approach_xy = faucet_initial.translation()[:2] + init_dir * push_offset
         handle_z = faucet_initial.translation()[2]
         approach_pos = np.array([approach_xy[0], approach_xy[1], handle_z])
         above_init_pos = np.array([approach_xy[0], approach_xy[1], handle_z + 0.10])
 
+        # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["above"] = self.to_pose(pos=above_init_pos, yaw=self.get_yaw(faucet_initial))
-        poses["approach"] = self.to_pose(pos=approach_pos, yaw=self.get_yaw(faucet_initial))
-        for i, p in enumerate(arc_poses):
-            poses[f"arc_{i}"] = p
-        # Dwell at the last arc point to ensure the turn finishes.
-        poses["dwell"] = self.to_pose(
-            pos=arc_poses[-1].translation(),
-            yaw=self.get_yaw(arc_poses[-1]),
+        poses["above"] = self.to_pose(
+            pos=above_init_pos, yaw=self.get_yaw(faucet_initial)
         )
+        poses["approach"] = self.to_pose(
+            pos=approach_pos, yaw=self.get_yaw(faucet_initial)
+        )
+        for i in range(n_arc):
+            poses[f"arc_{i}"] = arc_poses[i]
         poses["lift"] = self.to_pose(
             pos=arc_poses[-1].translation() + np.array([0, 0, 0.10]),
             yaw=self.get_yaw(arc_poses[-1]),
         )
         poses["final"] = plan_input["effector_goal"]
 
+        # Times
         times = {}
         times["initial"] = 0.0
         times["above"] = times["initial"] + self._dt
@@ -66,16 +67,21 @@ class FaucetPlanOracle(PlanOracle):
         for i in range(n_arc):
             times[f"arc_{i}"] = t + self._dt * 0.4
             t = times[f"arc_{i}"]
-        times["dwell"] = t + self._dt * 0.5
-        times["lift"] = times["dwell"] + self._dt * 0.5
+        times["lift"] = times[f"arc_{n_arc-1}"] + self._dt * 0.5
         times["final"] = times["lift"] + self._dt
-        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
         times = self.jitter_times(times)
 
         grasps = {}
         for name in times:
             grasps[name] = 1.0  # gripper always closed
 
+        # Postprocess
+        times, poses, grasps = self.hold_after_multiple(
+            times,
+            poses,
+            grasps,
+            names=["grasp_end", "release_end"],
+        )
         return times, poses, grasps
 
     def reset(self, ob, info):

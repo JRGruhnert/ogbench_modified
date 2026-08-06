@@ -13,27 +13,32 @@ class ButtonPlanOracle(PlanOracle):
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["press_start"] = self.above(plan_input["button"], 0.06)
+        poses["press_start"] = self.above(
+            plan_input["button"], 0.06 + np.random.uniform(0, 0.1)
+        )
         poses["press"] = self.above(plan_input["button"], -0.025)
         poses["press_end"] = poses["press_start"]
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
-        distance = np.linalg.norm(
-            poses["initial"].translation() - poses["press_start"].translation()
-        )
         times["initial"] = 0.0
-        times["press_start"] = times["initial"] + self._dt * (0.5 + distance * 4)
+        times["press_start"] = times["initial"] + self._dt
         times["press"] = times["press_start"] + self._dt * 0.8
         times["press_end"] = times["press"] + self._dt * 0.8
         times["final"] = times["press_end"] + self._dt * 1.25
         times = self.jitter_times(times)
-        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
         # Grasps
         grasps = self.build_grasps(times, {"press_start", "final"})
 
+        # Postprocess
+        times, poses, grasps = self.hold_after_multiple(
+            times,
+            poses,
+            grasps,
+            names=["grasp_end", "release_end"],
+        )
         return times, poses, grasps
 
     def reset(self, ob, info):

@@ -10,32 +10,30 @@ class LidPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        poses = {}
-
-        # Pick — go above the lid handle, descend, grab.
-        # Rotate gripper 90° relative to handle so fingers close across the handle.
         grab_yaw = self.get_yaw(plan_input["lid_initial"]) + np.pi / 2
         lid_initial = self.to_pose(
             pos=plan_input["lid_initial"].translation(),
             yaw=grab_yaw,
         )
+        lid_goal = self.equal_yaw(
+            obj_yaw=self.get_yaw(plan_input["lid_goal"]),
+            translation=plan_input["lid_goal"].translation(),
+        )
+
+        # Poses
+        poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["pick"] = self.above(lid_initial, 0.12)
         poses["pick_start"] = lid_initial
         poses["pick_end"] = lid_initial
         poses["postpick"] = poses["pick"]
-
-        lid_goal = self.equal_yaw(
-            obj_yaw=self.get_yaw(plan_input["lid_goal"]),
-            translation=plan_input["lid_goal"].translation(),
-        )
         poses["place"] = self.above(lid_goal, 0.12)
         poses["place_start"] = lid_goal
         poses["place_end"] = lid_goal
         poses["postplace"] = poses["place"]
         poses["final"] = plan_input["effector_goal"]
 
-        # Times.
+        # Times
         times = {}
         times["initial"] = 0.0
         times["pick"] = times["initial"] + self._dt
@@ -48,10 +46,17 @@ class LidPlanOracle(PlanOracle):
         times["postplace"] = times["place_end"] + self._dt
         times["final"] = times["postplace"] + self._dt
         times = self.jitter_times(times, factor=0.2)
-        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
+        # Grasps
         grasps = self.build_grasps(times, {"pick_end", "place_end"})
 
+        # Postprocess
+        times, poses, grasps = self.hold_after_multiple(
+            times,
+            poses,
+            grasps,
+            names=["grasp_end", "release_end"],
+        )
         return times, poses, grasps
 
     def reset(self, ob, info):

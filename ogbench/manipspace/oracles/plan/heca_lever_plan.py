@@ -9,8 +9,6 @@ class LeverPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        # Poses.
-        poses = {}
         lever_initial = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["lever_initial"]),
             translation=plan_input["lever_initial"].translation(),
@@ -19,6 +17,8 @@ class LeverPlanOracle(PlanOracle):
             obj_yaw=self.get_yaw(plan_input["lever_initial"]),
             translation=plan_input["lever_goal"].translation(),
         )
+        # Poses
+        poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(lever_initial, 0.08)
         poses["grasp_start"] = lever_initial
@@ -28,7 +28,7 @@ class LeverPlanOracle(PlanOracle):
         poses["clearance"] = self.above(lever_goal, 0.08)
         poses["final"] = plan_input["effector_goal"]
 
-        # Times.
+        # Times
         times = {}
         times["initial"] = 0.0
         times["approach"] = times["initial"] + self._dt
@@ -39,11 +39,17 @@ class LeverPlanOracle(PlanOracle):
         times["clearance"] = times["release"] + self._dt * 0.5
         times["final"] = times["clearance"] + self._dt
         times = self.jitter_times(times)
-        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
-        # Grasps.
+        # Grasps
         grasps = self.build_grasps(times, {"grasp_end", "release"})
 
+        # Postprocess
+        times, poses, grasps = self.hold_after_multiple(
+            times,
+            poses,
+            grasps,
+            names=["grasp_end", "release_end"],
+        )
         return times, poses, grasps
 
     def reset(self, ob, info):

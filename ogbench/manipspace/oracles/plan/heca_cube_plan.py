@@ -10,42 +10,31 @@ class CubePlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        # Poses.
-        poses = {}
-
-        # Pick.
+        # Pick
         block_initial = self.equal_yaw(
             obj_yaw=self.get_yaw(plan_input["block_initial"]),
             translation=plan_input["block_initial"].translation(),
         )
+        # Place
+        block_goal = self.equal_yaw(
+            obj_yaw=self.get_yaw(plan_input["block_goal"]),
+            translation=plan_input["block_goal"].translation(),
+        )
+
+        # Poses
+        poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["pick"] = self.above(block_initial, 0.1 + np.random.uniform(0, 0.1))
         poses["pick_start"] = block_initial
         poses["pick_end"] = block_initial
         poses["postpick"] = poses["pick"]
-
-        # Place.
-        block_goal = self.equal_yaw(
-            obj_yaw=self.get_yaw(plan_input["block_goal"]),
-            translation=plan_input["block_goal"].translation(),
-        )
         poses["place"] = self.above(block_goal, 0.1 + np.random.uniform(0, 0.1))
         poses["place_start"] = block_goal
         poses["place_end"] = block_goal
         poses["postplace"] = poses["place"]
         poses["final"] = plan_input["effector_goal"]
 
-        # Clearance.
-        midway = lie.interpolate(poses["postpick"], poses["place"])
-        poses["clearance"] = lie.SE3.from_rotation_and_translation(
-            rotation=midway.rotation(),
-            translation=np.array(
-                [*midway.translation()[:2], poses["initial"].translation()[-1]]
-            )
-            + np.random.uniform([-0.1, -0.1, 0], [0.1, 0.1, 0.2]),
-        )
-
-        # Times.
+        # Times
         times = {}
         times["initial"] = 0.0
         times["pick"] = times["initial"] + self._dt
@@ -59,10 +48,17 @@ class CubePlanOracle(PlanOracle):
         times["postplace"] = times["place_end"] + self._dt
         times["final"] = times["postplace"] + self._dt
         times = self.jitter_times(times, factor=0.2)
-        times, poses = self.add_neutral_yaw_prephase(poses["initial"], times, poses)
 
-        # Grasps.
+        # Grasps
         grasps = self.build_grasps(times, {"pick_end", "place_end"})
+
+        # Postprocess
+        times, poses, grasps = self.hold_after_multiple(
+            times,
+            poses,
+            grasps,
+            names=["grasp_end", "release_end"],
+        )
         return times, poses, grasps
 
     def reset(self, ob, info):

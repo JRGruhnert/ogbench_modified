@@ -18,7 +18,6 @@ from ogbench.manipspace.oracles.plan.heca_cube_plan import CubePlanOracle
 from ogbench.manipspace.oracles.plan.heca_drawer_plan import DrawerPlanOracle
 from ogbench.manipspace.oracles.plan.heca_window_plan import WindowPlanOracle
 from ogbench.manipspace.oracles.plan.heca_faucet_plan import FaucetPlanOracle
-from ogbench.manipspace.oracles.plan.heca_doorlock_plan import DoorlockPlanOracle
 from ogbench.manipspace.oracles.plan.heca_lever_plan import LeverPlanOracle
 from ogbench.manipspace.oracles.plan.heca_peg_plan import PegPlanOracle
 from ogbench.manipspace.oracles.plan.heca_lid_plan import LidPlanOracle
@@ -39,7 +38,9 @@ flags.DEFINE_integer("num_episodes", 200, "Number of episodes.")
 flags.DEFINE_integer("max_episode_steps", 1001, "Number of episodes.")
 flags.DEFINE_integer("image_size", 256, "Image size for observations.")
 flags.DEFINE_bool("dry_run", False, "Run data collection without saving to file.")
-flags.DEFINE_float("viewer_delay", 0.0, "Delay between steps in dry_run mode (for visual inspection).")
+flags.DEFINE_float(
+    "viewer_delay", 0.0, "Delay between steps in dry_run mode (for visual inspection)."
+)
 
 
 def main(_):
@@ -65,7 +66,9 @@ def main(_):
         name = obj.name  # e.g. "button_0", "drawer_0", "cube_0"
         if oracle_type == "markov":
             if name.startswith("cube"):
-                agents[name] = CubeMarkovOracle(env=env, min_norm=FLAGS.min_norm, max_step=100)
+                agents[name] = CubeMarkovOracle(
+                    env=env, min_norm=FLAGS.min_norm, max_step=100
+                )
             elif name.startswith("button"):
                 agents[name] = ButtonMarkovOracle(env=env, min_norm=FLAGS.min_norm)
             elif name.startswith("drawer"):
@@ -74,23 +77,61 @@ def main(_):
                 agents[name] = WindowMarkovOracle(env=env, min_norm=FLAGS.min_norm)
         else:
             if name.startswith("cube"):
-                agents[name] = CubePlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = CubePlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
             elif name.startswith("button"):
-                agents[name] = ButtonPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = ButtonPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
             elif name.startswith("drawer"):
-                agents[name] = DrawerPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = DrawerPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
             elif name.startswith("window"):
-                agents[name] = WindowPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = WindowPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
             elif name.startswith("faucet"):
-                agents[name] = FaucetPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
-            elif name.startswith("doorlock"):
-                agents[name] = DoorlockPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = FaucetPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
             elif name.startswith("lever"):
-                agents[name] = LeverPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = LeverPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
             elif name.startswith("peg"):
-                agents[name] = PegPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = PegPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
             elif name.startswith("lid"):
-                agents[name] = LidPlanOracle(env=env, object_id=oid, noise=FLAGS.noise, noise_smoothing=FLAGS.noise_smoothing)
+                agents[name] = LidPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
 
     # Collect data.
     total_steps = 0
@@ -131,7 +172,11 @@ def main(_):
                 env.unwrapped.launch_passive_viewer()
 
             # Stacking only possible with multiple cubes — hardcoded for now.
-            p_stack = 0.5 if any(o.name.startswith("cube") for o in env.unwrapped.objects) else 0.0
+            p_stack = (
+                0.5
+                if any(o.name.startswith("cube") for o in env.unwrapped.objects)
+                else 0.0
+            )
 
             if oracle_type == "markov":
                 xi = np.random.uniform(0, FLAGS.noise)
@@ -178,8 +223,12 @@ def main(_):
 
                 # Track free-body positions for health check.
                 for obj in env.unwrapped.objects:
-                    if hasattr(obj, "joint_name") and obj.name.startswith(("cube", "peg", "lid")):
-                        free_positions.append(env.unwrapped._data.joint(obj.joint_name).qpos[:3].copy())
+                    if hasattr(obj, "joint_name") and obj.name.startswith(
+                        ("cube", "peg", "lid")
+                    ):
+                        free_positions.append(
+                            env.unwrapped._data.joint(obj.joint_name).qpos[:3].copy()
+                        )
 
                 ob = next_ob
                 step += 1

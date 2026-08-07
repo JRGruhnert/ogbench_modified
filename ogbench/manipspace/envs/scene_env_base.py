@@ -13,6 +13,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._permute_blocks = permute_blocks
         super().__init__(*args, **kwargs)
         self._arm_sampling_bounds = np.asarray([[0.25, -0.2, 0.20], [0.6, 0.2, 0.35]])
+        self._oracle_just_done = False
 
     def set_tasks(self):
         self.task_infos = []
@@ -59,6 +60,7 @@ class SceneEnvBase(ManipSpaceEnv):
 
     def set_new_target(self, return_info=True, p_stack=0.5):
         assert self._mode in ("data_collection", "collection")
+        self._oracle_just_done = True
 
         probs = self._get_task_probabilities()
         task_list, prob_list = [], []
@@ -170,8 +172,14 @@ class SceneEnvBase(ManipSpaceEnv):
 
         if self._mode in ("data_collection", "collection"):
             ob_info["privileged_target_task"] = self._target_task
+            ob_info["oracle_done"] = float(self._oracle_just_done)
+            self._oracle_just_done = False
             for obj in self.objects:
                 ob_info.update(obj.get_info_target(self))
+            # Oracle success: is the current target object at its goal?
+            ob_info["oracle_success"] = float(any(
+                val for val, name in self._compute_successes() if name == self._target_task
+            ))
 
     def compute_observation(self):
         if self._ob_type == "pixels":

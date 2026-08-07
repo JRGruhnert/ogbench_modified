@@ -53,9 +53,12 @@ class LeverPlanOracle(PlanOracle):
         poses["final"] = plan_input["effector_goal"]
 
         # Times
+        distance = np.linalg.norm(
+            poses["initial"].translation() - poses["approach"].translation()
+        )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt
+        times["approach"] = self._dt * (0.5 + distance * 4)
         times["grasp"] = self._dt * 0.5
         for i in range(len(arc_poses)):
             times[f"arc_{i}"] = self._dt * 0.4

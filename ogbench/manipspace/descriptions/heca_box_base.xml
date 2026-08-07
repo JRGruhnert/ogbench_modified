@@ -31,18 +31,18 @@
     </default>
 
     <asset>
-        <mesh file="metaworld/bin/bin.stl" name="bin" scale="0.6 0.6 0.6" />
+        <mesh file="metaworld/bin/bin.stl" name="bin" scale="0.6 0.6 0.9" />
         <mesh file="metaworld/box/boxtop.stl" name="boxtop" scale="0.6 0.6 0.6" />
         <mesh file="metaworld/box/boxhandle.stl" name="boxhandle" scale="0.6 0.6 0.6" />
     </asset>
 
     <worldbody>
         <body childclass="box_base" name="box" pos="0 0 0" euler="0 0 0">
-            <geom material="box_wood" mesh="bin" pos="0 0 0.018" />
-            <geom class="box_col" pos="0 -0.057 0.018" size="0.06 0.003 0.018" type="box" />
-            <geom class="box_col" pos="0 0.057 0.018" size="0.06 0.003 0.018" type="box" />
-            <geom class="box_col" pos="0.057 0 0.018" size="0.003 0.054 0.018" type="box" />
-            <geom class="box_col" pos="-0.057 0 0.018" size="0.003 0.054 0.018" type="box" />
+            <geom material="box_wood" mesh="bin" pos="0 0 0.027" />
+            <geom class="box_col" pos="0 -0.057 0.027" size="0.06 0.003 0.027" type="box" />
+            <geom class="box_col" pos="0 0.057 0.027" size="0.06 0.003 0.027" type="box" />
+            <geom class="box_col" pos="0.057 0 0.027" size="0.003 0.054 0.027" type="box" />
+            <geom class="box_col" pos="-0.057 0 0.027" size="0.003 0.054 0.027" type="box" />
             <geom class="box_col" pos="0 0 0.003" size="0.06 0.06 0.003" type="box" />
         </body>
     </worldbody>

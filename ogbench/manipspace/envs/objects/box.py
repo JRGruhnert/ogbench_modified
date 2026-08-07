@@ -28,7 +28,7 @@ class BoxObject(SceneObject):
     def _surface_pos(self, env):
         """Top surface center of the box bin (for placement)."""
         p = env._data.xpos[self._body_id].copy()
-        p[2] += 0.04  # approximate bin rim height
+        p[2] += 0.06  # bin rim height (50% deeper)
         return p
 
     def contains(self, env, obj_pos):

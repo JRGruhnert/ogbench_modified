@@ -10,12 +10,13 @@ class LidPlanOracle(PlanOracle):
 
     def compute_keyframes(self, plan_input):
         grab_yaw = self.get_yaw(plan_input["lid_initial"]) + np.pi / 2
+        place_yaw = self.get_yaw(plan_input["lid_goal"]) + np.pi / 2
         lid_initial = self.to_pose(
             pos=plan_input["lid_initial"].translation(),
             yaw=grab_yaw,
         )
         lid_goal = self.equal_yaw(
-            obj_yaw=self.get_yaw(plan_input["lid_goal"]),
+            obj_yaw=place_yaw,
             translation=plan_input["lid_goal"].translation(),
         )
 
@@ -33,13 +34,19 @@ class LidPlanOracle(PlanOracle):
         poses["final"] = plan_input["effector_goal"]
 
         # Times
+        distance1 = np.linalg.norm(
+            poses["initial"].translation() - poses["approach"].translation()
+        )
+        distance2 = np.linalg.norm(
+            poses["approach"].translation() - poses["approach2"].translation()
+        )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt
+        times["approach"] = self._dt * (0.5 + distance1 * 4)
         times["pick-start"] = self._dt * 1.5
         times["pick"] = self._dt
         times["pick-end"] = self._dt
-        times["approach2"] = self._dt
+        times["approach2"] = self._dt * (0.5 + distance1 * 4)
         times["place-start"] = self._dt * 1.5
         times["place"] = self._dt
         times["place-end"] = self._dt

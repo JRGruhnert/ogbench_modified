@@ -14,7 +14,7 @@ class ButtonPlanOracle(PlanOracle):
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(plan_input["button"], 0.06)
-        poses["press"] = self.above(plan_input["button"], -0.025, noise=0.0)
+        poses["press"] = self.above(plan_input["button"], -0.02, noise=0.0)
         poses["leave"] = poses["approach"]
         poses["final"] = plan_input["effector_goal"]
 

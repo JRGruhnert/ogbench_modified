@@ -15,22 +15,18 @@ class FaucetPlanOracle(PlanOracle):
         init_angle,
         goal_angle,
         n_arc=6,
-        push_offset=0.8,
+        push_offset=0.08,
         radius=0.105,
     ):
-        """Compute arc poses and approach pose for pushing the faucet handle.
-
-        Returns (arc_poses, approach_pose, above_pose).
-        """
         handle_z = faucet_initial.translation()[2]
         base_yaw = self.get_yaw(faucet_initial)
-
         arc_angles = np.linspace(init_angle, goal_angle, n_arc)
         arc_poses = []
         for angle in arc_angles:
             xy = center[:2] + radius * np.array([np.sin(angle), -np.cos(angle)])
             pos = np.array([xy[0], xy[1], handle_z])
-            arc_poses.append(self.to_pose(pos=pos, yaw=base_yaw))
+            yaw = base_yaw + (angle - init_angle)
+            arc_poses.append(self.to_pose(pos=pos, yaw=yaw))
 
         delta = goal_angle - init_angle
         if delta >= 0:
@@ -69,12 +65,15 @@ class FaucetPlanOracle(PlanOracle):
         poses["final"] = plan_input["effector_goal"]
 
         # Times
+        distance = np.linalg.norm(
+            poses["initial"].translation() - poses["approach"].translation()
+        )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt
+        times["approach"] = self._dt * (0.5 + distance * 4)
         times["down"] = self._dt * 0.5
         for i in range(len(arc_poses)):
-            times[f"arc_{i}"] = self._dt * 0.4
+            times[f"arc_{i}"] = self._dt * 0.6
         times["lift"] = self._dt * 0.5
         times["final"] = self._dt
 

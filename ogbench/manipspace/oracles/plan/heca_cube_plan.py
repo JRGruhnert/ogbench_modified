@@ -25,33 +25,37 @@ class CubePlanOracle(PlanOracle):
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(block_initial, 0.1)
-        poses["grasp"] = block_initial
-        poses["leave"] = poses["approach"]
+        poses["pick-start"] = block_initial
+        poses["pick"] = block_initial
+        poses["pick-end"] = poses["approach"]
         poses["approach2"] = self.above(block_goal, 0.1)
-        poses["release"] = block_goal
-        poses["leave2"] = poses["approach2"]
+        poses["place-start"] = block_goal
+        poses["place"] = block_goal
+        poses["place-end"] = poses["approach2"]
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt
-        times["grasp"] = self._dt * 0.8
-        times["leave"] = self._dt * 0.8
+        times["pick-start"] = self._dt * 1.5
+        times["pick"] = self._dt
+        times["pick-end"] = self._dt
         times["approach2"] = self._dt
-        times["release"] = self._dt * 0.8
-        times["leave2"] = self._dt * 0.8
+        times["place-start"] = self._dt * 1.5
+        times["place"] = self._dt
+        times["place-end"] = self._dt
         times["final"] = self._dt
 
         # Grasp
-        grasps = self.build_grasps(times, {"grasp", "release"})
+        grasps = self.build_grasps(times, {"pick", "place"})
 
         # Postprocess
         times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            checkpoints=["grasp", "release"],
+            checkpoints=["pick", "place"],
         )
         return times, poses, grasps
 

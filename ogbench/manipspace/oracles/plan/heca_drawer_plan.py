@@ -22,30 +22,34 @@ class DrawerPlanOracle(PlanOracle):
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["approach"] = self.above(drawer_initial, 0.06)
-        poses["grasp"] = drawer_initial
+        poses["approach"] = self.above(drawer_initial, 0.12)
+        poses["grasp-start"] = drawer_initial
+        poses["grasp-end"] = drawer_initial
         poses["move"] = drawer_goal
-        poses["release"] = self.above(drawer_goal, 0.06)
+        poses["release-start"] = drawer_goal
+        poses["release-end"] = self.above(drawer_goal, 0.12)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt
-        times["grasp"] = self._dt * 0.5
+        times["grasp-start"] = self._dt * 0.5
+        times["grasp-end"] = self._dt * 0.5
         times["move"] = self._dt * 0.5
-        times["release"] = self._dt * 0.5
+        times["release-start"] = self._dt * 0.5
+        times["release-end"] = self._dt * 0.5
         times["final"] = self._dt
 
         # Grasps
-        grasps = self.build_grasps(times, {"grasp", "release"})
+        grasps = self.build_grasps(times, {"grasp-end", "release-start"})
 
         # Postprocess
         times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            checkpoints=["grasp", "release"],
+            checkpoints=["grasp-end", "release-start"],
         )
 
         return times, poses, grasps

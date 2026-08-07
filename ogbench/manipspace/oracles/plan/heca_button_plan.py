@@ -19,9 +19,12 @@ class ButtonPlanOracle(PlanOracle):
         poses["final"] = plan_input["effector_goal"]
 
         # Times
+        distance = np.linalg.norm(
+            poses["initial"].translation() - poses["approach"].translation()
+        )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt
+        times["approach"] = self._dt * (0.5 + distance * 4)
         times["press"] = self._dt * 0.8
         times["leave"] = self._dt * 0.8
         times["final"] = self._dt * 1.25

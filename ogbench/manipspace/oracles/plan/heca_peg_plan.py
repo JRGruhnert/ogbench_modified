@@ -23,34 +23,38 @@ class PegPlanOracle(PlanOracle):
         # Poses
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
-        poses["approach"] = self.above(peg_initial, 0.12)
-        poses["grasp"] = peg_initial
-        poses["leave"] = poses["approach"]
-        poses["approach2"] = self.above(peg_goal, 0.12)
-        poses["release"] = peg_goal
-        poses["leave2"] = poses["approach2"]
+        poses["approach"] = self.above(peg_initial, 0.1)
+        poses["pick-start"] = peg_initial
+        poses["pick"] = peg_initial
+        poses["pick-end"] = poses["approach"]
+        poses["approach2"] = self.above(peg_goal, 0.1)
+        poses["place-start"] = peg_goal
+        poses["place"] = peg_goal
+        poses["place-end"] = poses["approach2"]
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt
-        times["grasp"] = self._dt * 0.8
-        times["leave"] = self._dt * 0.8
+        times["pick-start"] = self._dt * 1.5
+        times["pick"] = self._dt
+        times["pick-end"] = self._dt
         times["approach2"] = self._dt
-        times["release"] = self._dt * 0.8
-        times["leave2"] = self._dt * 0.8
+        times["place-start"] = self._dt * 1.5
+        times["place"] = self._dt
+        times["place-end"] = self._dt
         times["final"] = self._dt
 
         # Grasp
-        grasps = self.build_grasps(times, {"grasp", "release"})
+        grasps = self.build_grasps(times, {"pick", "place"})
 
         # Postprocess
         times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            checkpoints=["grasp", "release"],
+            checkpoints=["pick", "place"],
         )
         return times, poses, grasps
 

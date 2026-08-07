@@ -21,29 +21,33 @@ class WindowPlanOracle(PlanOracle):
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(window_initial, 0.06)
-        poses["grasp"] = window_initial
+        poses["grasp-start"] = window_initial
+        poses["grasp-end"] = window_initial
         poses["move"] = window_goal
-        poses["release"] = self.above(window_goal, 0.06)
+        poses["release-start"] = window_goal
+        poses["release-end"] = self.above(window_goal, 0.06)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt
-        times["grasp"] = self._dt * 0.5
+        times["grasp-start"] = self._dt * 0.5
+        times["grasp-end"] = self._dt * 0.5
         times["move"] = self._dt * 0.5
-        times["release"] = self._dt * 0.5
+        times["release-start"] = self._dt * 0.5
+        times["release-end"] = self._dt * 0.5
         times["final"] = self._dt
 
         # Grasps
-        grasps = self.build_grasps(times, {"grasp", "release"})
+        grasps = self.build_grasps(times, {"grasp-end", "release-start"})
 
         # Postprocess
         times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            checkpoints=["grasp", "release"],
+            checkpoints=["grasp-end", "release-start"],
         )
 
         return times, poses, grasps

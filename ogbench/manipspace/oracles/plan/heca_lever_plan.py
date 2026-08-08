@@ -81,12 +81,7 @@ class LeverPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        if f"heca_target_lever_{i}_pos_ee" in info:
-            target_handle_pos = info[f"heca_target_lever_{i}_pos_ee"]
-        else:
-            target_handle_pos = env._data.site_xpos[
-                env.get_object(f"lever_{i}")._target_site_id
-            ].copy()
+        target_handle_pos = info[f"heca_target_lever_{i}_pos"]
 
         lever = env.get_object(f"lever_{i}")
         lever_center = env._data.xpos[lever._body_id].copy()

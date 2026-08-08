@@ -25,7 +25,6 @@ class FaucetObject(SceneObject):
     def is_closed(self, env):
         return bool(env._data.joint(self.joint_name).qpos[0] <= -0.3)
 
-    # ---- lifecycle ----
     def post_compilation(self, env):
         self._site_id = env._model.site(self.site_name).id
         self._target_site_id = env._model.site(self.target_site_name).id
@@ -47,7 +46,6 @@ class FaucetObject(SceneObject):
             np.clip(val + env.np_random.uniform(-0.05, 0.05), lo, hi)
         )
 
-    # ---- queries ----
     def compute_success(self, env):
         cur = env._data.joint(self.joint_name).qpos[0]
         return (bool(np.abs(cur - self._target_val) <= self.tolerance), self.name)
@@ -60,22 +58,7 @@ class FaucetObject(SceneObject):
             lie.SO3.from_matrix(env._data.site_xmat[sid].reshape(3, 3)).wxyz.copy()
         )
         return {
-            f"privileged_{self.name}_pos": env._data.joint(self.joint_name).qpos.copy(),
-            f"privileged_{self.name}_vel": env._data.joint(self.joint_name).qvel.copy(),
-            f"privileged_{self.name}_handle_pos": env._data.site_xpos[sid].copy(),
-            f"privileged_{self.name}_handle_state": 1 if self.is_closed(env) else 0,
-            f"privileged_{self.name}_handle_yaw": np.array(
-                [
-                    lie.SO3.from_matrix(
-                        env._data.site_xmat[sid].reshape(3, 3)
-                    ).compute_yaw_radians()
-                ]
-            ),
-            f"privileged_{self.name}_handle_quat": quat,
-            f"heca_{self.name}_pos_base": env._data.joint(
-                self.joint_name
-            ).xanchor.copy(),
-            f"heca_{self.name}_pos_ee": env._data.site_xpos[sid].copy(),
+            f"heca_{self.name}_pos": env._data.site_xpos[sid].copy(),
             f"heca_{self.name}_rot": quat,
             f"heca_{self.name}_yaw": np.array(
                 [
@@ -84,16 +67,18 @@ class FaucetObject(SceneObject):
                     ).compute_yaw_radians()
                 ]
             ),
-            f"heca_{self.name}_ste": 1 if self.is_closed(env) else 0,
-            f"heca_{self.name}_angle": env._data.joint(self.joint_name).qpos.copy(),
-            f"heca_{self.name}_angle_min": env._data.joint(self.joint_name).qpos.copy(),
-            f"heca_{self.name}_angle_max": env._data.joint(self.joint_name).qpos.copy(),
+            f"heca_{self.name}_ste": np.array([1 if self.is_closed(env) else 0]),
+            f"heca_{self.name}_ste_min": np.array([0]),
+            f"heca_{self.name}_ste_max": np.array([1]),
+            f"heca_{self.name}_ang": env._data.joint(self.joint_name).qpos.copy(),
+            f"heca_{self.name}_ang_min": np.array([self.pos_range[0]]),
+            f"heca_{self.name}_ang_max": np.array([self.pos_range[1]]),
         }
 
     def get_info_target(self, env):
         return {
-            f"heca_target_{self.name}_pos": np.array([self._target_val]),
-            f"heca_target_{self.name}_pos_ee": env._data.site_xpos[
+            f"heca_target_{self.name}_ang": np.array([self._target_val]),
+            f"heca_target_{self.name}_pos": env._data.site_xpos[
                 self._target_site_id
             ].copy(),
         }
@@ -127,15 +112,10 @@ class FaucetObject(SceneObject):
             env._model.joint(self.joint_name).damping[0] = 2.0
 
     def add_observation(self, env, ob, ob_info):
-        ob.extend(
-            [
-                ob_info[f"privileged_{self.name}_pos"] * self.scaler,
-                ob_info[f"privileged_{self.name}_vel"],
-            ]
-        )
+        pass
 
     def add_oracle_obs(self, env, ob, ob_info):
-        ob.append(ob_info[f"privileged_{self.name}_pos"] * self.scaler)
+        pass
 
     def _set_site(self, env, val):
         env._model.site(self.target_site_name).pos[0] = 0.105 * np.sin(val)

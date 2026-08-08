@@ -60,12 +60,7 @@ class DrawerPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        if f"heca_target_drawer_{i}_pos_ee" in info:
-            target_handle_pos = info[f"heca_target_drawer_{i}_pos_ee"]
-        else:
-            target_handle_pos = env._data.site_xpos[
-                env.get_object(f"drawer_{i}")._target_site_id
-            ].copy()
+        target_handle_pos = info[f"heca_target_drawer_{i}_pos"]
 
         plan_input = {
             "effector_initial": self.to_pose(

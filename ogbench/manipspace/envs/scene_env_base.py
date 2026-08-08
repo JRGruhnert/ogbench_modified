@@ -180,35 +180,18 @@ class SceneEnvBase(ManipSpaceEnv):
             ob_info["oracle_success"] = float(any(
                 val for val, name in self._compute_successes() if name == self._target_task
             ))
+            # Workspace normalization metadata (same values as compute_observation)
+            ob_info["meta_xyz_center"] = np.array([0.425, 0.0, 0.0])
+            ob_info["meta_xyz_scaler"] = np.array([10.0])
+            ob_info["meta_gripper_scaler"] = np.array([3.0])
 
     def compute_observation(self):
         if self._ob_type == "pixels":
             return self.get_pixel_observation()
-
-        xyz_center = np.array([0.425, 0.0, 0.0])
-        xyz_scaler = 10.0
-        gripper_scaler = 3.0
-
-        ob_info = self.compute_ob_info()
-        ob = [
-            ob_info["proprio_joint_pos"],
-            ob_info["proprio_joint_vel"],
-            (ob_info["proprio_effector_pos"] - xyz_center) * xyz_scaler,
-            np.cos(ob_info["proprio_effector_yaw"]),
-            np.sin(ob_info["proprio_effector_yaw"]),
-            ob_info["proprio_gripper_opening"] * gripper_scaler,
-            ob_info["proprio_gripper_contact"],
-        ]
-        for obj in self.objects:
-            obj.add_observation(self, ob, ob_info)
-        return np.concatenate(ob)
+        return {}
 
     def compute_oracle_observation(self):
-        ob_info = self.compute_ob_info()
-        ob = [ob_info["proprio_joint_pos"]]
-        for obj in self.objects:
-            obj.add_oracle_obs(self, ob, ob_info)
-        return np.concatenate(ob)
+        return {}
 
     def compute_reward(self):
         successes = [val for val, _ in self._compute_successes()]

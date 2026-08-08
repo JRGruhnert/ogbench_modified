@@ -30,9 +30,9 @@ class ShelfObject(SceneObject):
         """Check if a 3D point is on the shelf."""
         shelf_pos = env._data.site_xpos[self._goal_site_id]
         return (
-            abs(obj_pos[0] - shelf_pos[0]) < 0.08 and
-            abs(obj_pos[1] - shelf_pos[1]) < 0.08 and
-            obj_pos[2] > shelf_pos[2] - 0.01
+            abs(obj_pos[0] - shelf_pos[0]) < 0.08
+            and abs(obj_pos[1] - shelf_pos[1]) < 0.08
+            and obj_pos[2] > shelf_pos[2] - 0.01
         )
 
     def is_open(self, env):
@@ -47,10 +47,12 @@ class ShelfObject(SceneObject):
 
     def get_info(self, env):
         return {
-            f"heca_{self.name}_pos_base": env._data.xpos[self._body_id].copy(),
-            f"heca_{self.name}_pos_ee": env._data.site_xpos[self._goal_site_id].copy(),
-            f"heca_{self.name}_rot": np.array([1.0, 0.0, 0.0, 0.0]),
-            f"heca_{self.name}_ste": 0,
+            f"heca_{self.name}_pos": env._data.xpos[self._body_id].copy(),
+            f"heca_{self.name}_rot": self.default_quaternion(),
+            f"heca_{self.name}_ste": np.array([0]),
+            f"heca_{self.name}_yaw": np.array([0.0]),
+            f"heca_{self.name}_ste_min": np.array([0]),
+            f"heca_{self.name}_ste_max": np.array([0]),
         }
 
     def init_to_goal(self, env, task_info):

@@ -95,14 +95,9 @@ class FaucetPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        if f"heca_target_faucet_{i}_pos_ee" in info:
-            target_handle_pos = info[f"heca_target_faucet_{i}_pos_ee"]
-            target_faucet_yaw = info[f"heca_target_faucet_{i}_pos"][0]
-            faucet = env.get_object(f"faucet_{i}")
-        else:
-            faucet = env.get_object(f"faucet_{i}")
-            target_handle_pos = env._data.site_xpos[faucet._target_site_id].copy()
-            target_faucet_yaw = faucet._target_val
+        target_handle_pos = info[f"heca_target_faucet_{i}_pos"]
+        target_faucet_yaw = info[f"heca_target_faucet_{i}_ang"][0]
+        faucet = env.get_object(f"faucet_{i}")
 
         faucet_center = env._data.xpos[faucet._body_id].copy()
 

@@ -64,13 +64,8 @@ class PegPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        if f"heca_target_peg_{i}_pos" in info:
-            target_pos = info[f"heca_target_peg_{i}_pos"]
-            target_yaw = info[f"heca_target_peg_{i}_yaw"][0]
-        else:
-            peg = env.get_object(f"peg_{i}")
-            target_pos = env._data.mocap_pos[peg._target_mocap_id].copy()
-            target_yaw = 0.0
+        target_pos = info[f"heca_target_peg_{i}_pos"]
+        target_yaw = info[f"heca_target_peg_{i}_yaw"][0]
 
         plan_input = {
             "effector_initial": self.to_pose(

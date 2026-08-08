@@ -5,8 +5,6 @@ from ogbench.manipspace.envs.objects.base import SceneObject
 
 
 class PegObject(SceneObject):
-    """Assembly peg — a free-body ring to be placed on a peg fixture."""
-
     xml_file = "heca_peg.xml"
     name = "peg"
 
@@ -74,22 +72,14 @@ class PegObject(SceneObject):
         quat = q.qpos[3:].copy()
         i = self.id
         return {
-            f"privileged_peg_{i}_pos": q.qpos[:3].copy(),
-            f"privileged_peg_{i}_quat": quat,
-            f"privileged_peg_{i}_yaw": np.array(
-                [lie.SO3(wxyz=quat).compute_yaw_radians()]
-            ),
-            f"privileged_peg_{i}_state": 1,
-            f"privileged_peg_{i}_handle_pos": env._data.site_xpos[
-                env._model.site(self._jname("peg_handle_site_0")).id
-            ].copy(),
-            f"heca_peg_{i}_pos_base": q.qpos[:3].copy(),
-            f"heca_peg_{i}_pos_ee": env._data.site_xpos[
+            f"heca_peg_{i}_pos": env._data.site_xpos[
                 env._model.site(self._jname("peg_handle_site_0")).id
             ].copy(),
             f"heca_peg_{i}_rot": quat,
             f"heca_peg_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
-            f"heca_peg_{i}_ste": 0,
+            f"heca_peg_{i}_ste": np.array([0]),
+            f"heca_peg_{i}_ste_min": np.array([0]),
+            f"heca_peg_{i}_ste_max": np.array([0]),
             f"heca_peg_{i}_loc": "default",
         }
 
@@ -97,7 +87,6 @@ class PegObject(SceneObject):
         mid = self._target_mocap_id
         i = self.id
         return {
-            f"heca_target_peg_{i}": 0,
             f"heca_target_peg_{i}_pos": env._data.mocap_pos[mid].copy(),
             f"heca_target_peg_{i}_yaw": np.array(
                 [lie.SO3(wxyz=env._data.mocap_quat[mid]).compute_yaw_radians()]
@@ -132,23 +121,10 @@ class PegObject(SceneObject):
         return task_info.get("peg_xyzs")
 
     def add_observation(self, env, ob, ob_info):
-        c = np.array([0.425, 0.0, 0.0])
-        s = 10.0
-        i = self.id
-        ob.extend(
-            [
-                (ob_info[f"privileged_peg_{i}_pos"] - c) * s,
-                ob_info[f"privileged_peg_{i}_quat"],
-                np.cos(ob_info[f"privileged_peg_{i}_yaw"]),
-                np.sin(ob_info[f"privileged_peg_{i}_yaw"]),
-            ]
-        )
+        pass
 
     def add_oracle_obs(self, env, ob, ob_info):
-        c = np.array([0.425, 0.0, 0.0])
-        s = 10.0
-        i = self.id
-        ob.append((ob_info[f"privileged_peg_{i}_pos"] - c) * s)
+        pass
 
     def health_check_and_colors(self, env, successes):
         if env._mode == "task":

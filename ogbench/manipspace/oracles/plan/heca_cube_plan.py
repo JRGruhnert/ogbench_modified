@@ -65,13 +65,8 @@ class CubePlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        if f"heca_target_cube_{i}_pos" in info:
-            target_block_pos = info[f"heca_target_cube_{i}_pos"]
-            target_block_yaw = info[f"heca_target_cube_{i}_yaw"]
-        else:
-            cube = env.get_object(f"cube_{i}")
-            target_block_pos = env._data.mocap_pos[cube._target_mocap_id].copy()
-            target_block_yaw = np.array([0.0])
+        target_block_pos = info[f"heca_target_cube_{i}_pos"]
+        target_block_yaw = info[f"heca_target_cube_{i}_yaw"]
 
         plan_input = {
             "effector_initial": self.to_pose(

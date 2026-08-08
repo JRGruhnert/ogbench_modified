@@ -67,13 +67,8 @@ class LidPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        if f"heca_target_lid_{i}_pos" in info:
-            target_pos = info[f"heca_target_lid_{i}_pos"]
-            target_yaw = info[f"heca_target_lid_{i}_yaw"][0]
-        else:
-            lid = env.get_object(f"lid_{i}")
-            target_pos = env._data.mocap_pos[lid._target_mocap_id].copy()
-            target_yaw = 0.0
+        target_pos = info[f"heca_target_lid_{i}_pos"]
+        target_yaw = info[f"heca_target_lid_{i}_yaw"][0]
 
         plan_input = {
             "effector_initial": self.to_pose(

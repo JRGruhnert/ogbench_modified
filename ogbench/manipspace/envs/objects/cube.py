@@ -5,8 +5,6 @@ from ogbench.manipspace.envs.objects.base import SceneObject, COLORS
 
 
 class CubeObject(SceneObject):
-    """Free-body cube."""
-
     xml_file = "heca_cube.xml"
     name = "cube"
 
@@ -114,17 +112,12 @@ class CubeObject(SceneObject):
         quat = q.qpos[3:].copy()
         i = self.id
         return {
-            f"privileged_block_{i}_pos": q.qpos[:3].copy(),
-            f"privileged_block_{i}_quat": quat,
-            f"privileged_block_{i}_yaw": np.array(
-                [lie.SO3(wxyz=quat).compute_yaw_radians()]
-            ),
-            f"privileged_block_{i}_state": 1,
-            f"heca_cube_{i}_pos_base": q.qpos[:3].copy(),
-            f"heca_cube_{i}_pos_ee": q.qpos[:3].copy(),
+            f"heca_cube_{i}_pos": q.qpos[:3].copy(),
             f"heca_cube_{i}_rot": quat,
             f"heca_cube_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
-            f"heca_cube_{i}_ste": 0,
+            f"heca_cube_{i}_ste": np.array([0]),
+            f"heca_cube_{i}_ste_min": np.array([0]),
+            f"heca_cube_{i}_ste_max": np.array([0]),
             f"heca_cube_{i}_loc": self._get_location(env),
         }
 
@@ -132,7 +125,6 @@ class CubeObject(SceneObject):
         mid = self._target_mocap_id
         i = self.id
         return {
-            f"heca_target_cube_{i}": self._target_block,
             f"heca_target_cube_{i}_pos": env._data.mocap_pos[mid].copy(),
             f"heca_target_cube_{i}_yaw": np.array(
                 [lie.SO3(wxyz=env._data.mocap_quat[mid]).compute_yaw_radians()]
@@ -189,23 +181,10 @@ class CubeObject(SceneObject):
         return task_info.get("block_xyzs")
 
     def add_observation(self, env, ob, ob_info):
-        c = np.array([0.425, 0.0, 0.0])
-        s = 10.0
-        i = self.id
-        ob.extend(
-            [
-                (ob_info[f"privileged_block_{i}_pos"] - c) * s,
-                ob_info[f"privileged_block_{i}_quat"],
-                np.cos(ob_info[f"privileged_block_{i}_yaw"]),
-                np.sin(ob_info[f"privileged_block_{i}_yaw"]),
-            ]
-        )
+        pass
 
     def add_oracle_obs(self, env, ob, ob_info):
-        c = np.array([0.425, 0.0, 0.0])
-        s = 10.0
-        i = self.id
-        ob.append((ob_info[f"privileged_block_{i}_pos"] - c) * s)
+        pass
 
     def health_check_and_colors(self, env, successes):
         if env._mode == "task":

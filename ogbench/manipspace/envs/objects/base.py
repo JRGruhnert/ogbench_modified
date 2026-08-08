@@ -61,8 +61,21 @@ class SceneObject:
     @staticmethod
     def _rename_elements(mjcf_model, suffix):
         # Rename all named elements to avoid duplicates when loading the same XML twice.
-        TAGS = ("body", "joint", "site", "geom", "material", "texture", "mesh",
-                "actuator", "sensor", "camera", "light", "equality", "tendon")
+        TAGS = (
+            "body",
+            "joint",
+            "site",
+            "geom",
+            "material",
+            "texture",
+            "mesh",
+            "actuator",
+            "sensor",
+            "camera",
+            "light",
+            "equality",
+            "tendon",
+        )
         for tag in TAGS:
             for el in mjcf_model.find_all(tag):
                 if el.name:
@@ -74,7 +87,6 @@ class SceneObject:
     def default_quaternion(self) -> np.ndarray:
         return np.array(lie.SO3.identity().wxyz.tolist())
 
-    # ---- lifecycle hooks (no default) ----
     def post_compilation(self, env):
         pass
 
@@ -87,7 +99,6 @@ class SceneObject:
     def init_to_init(self, env, task_info):
         pass
 
-    # ---- queries ----
     def compute_success(self, env):
         return None
 
@@ -106,7 +117,6 @@ class SceneObject:
     def get_target_from_task(self, task_info):
         return None
 
-    # ---- per-step ----
     def apply_lock(self, model):
         pass
 
@@ -142,7 +152,6 @@ class SceneObject:
     def health_check_and_colors(self, env, successes):
         pass
 
-    # ---- observation ----
     def add_observation(self, env, ob: list, ob_info: dict):
         pass
 

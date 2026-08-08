@@ -4,7 +4,6 @@ from ogbench.manipspace.envs.objects.base import SceneObject
 
 
 class BoxObject(SceneObject):
-    """Static box/bin — acts as a container for cube placement."""
     xml_file = "heca_box_base.xml"
     name = "box"
 
@@ -35,9 +34,9 @@ class BoxObject(SceneObject):
         """Check if a 3D point is inside the box bin."""
         p = self._surface_pos(env)
         return (
-            abs(obj_pos[0] - p[0]) < 0.06 and
-            abs(obj_pos[1] - p[1]) < 0.06 and
-            obj_pos[2] > p[2] - 0.01
+            abs(obj_pos[0] - p[0]) < 0.06
+            and abs(obj_pos[1] - p[1]) < 0.06
+            and obj_pos[2] > p[2] - 0.01
         )
 
     def is_open(self, env):
@@ -49,9 +48,11 @@ class BoxObject(SceneObject):
             return False
         lid_pos = env._data.joint(self._lid.joint_name).qpos[:3]
         p = self._surface_pos(env)
-        return (abs(lid_pos[0] - p[0]) < 0.06 and
-                abs(lid_pos[1] - p[1]) < 0.06 and
-                abs(lid_pos[2] - p[2]) < 0.02)
+        return (
+            abs(lid_pos[0] - p[0]) < 0.06
+            and abs(lid_pos[1] - p[1]) < 0.06
+            and abs(lid_pos[2] - p[2]) < 0.02
+        )
 
     def get_placement_pos(self, env):
         """Target position for placing a block inside the box."""
@@ -61,8 +62,10 @@ class BoxObject(SceneObject):
 
     def get_info(self, env):
         return {
-            f"heca_{self.name}_pos_base": env._data.xpos[self._body_id].copy(),
-            f"heca_{self.name}_pos_ee": self._surface_pos(env),
-            f"heca_{self.name}_rot": np.array([1.0, 0.0, 0.0, 0.0]),
-            f"heca_{self.name}_ste": 0 if self.is_open(env) else 1,
+            f"heca_{self.name}_pos": env._data.xpos[self._body_id].copy(),
+            f"heca_{self.name}_rot": self.default_quaternion(),
+            f"heca_{self.name}_ste": np.array([0 if self.is_open(env) else 1]),
+            f"heca_{self.name}_yaw": np.array([0.0]),
+            f"heca_{self.name}_ste_min": np.array([0]),
+            f"heca_{self.name}_ste_max": np.array([1]),
         }

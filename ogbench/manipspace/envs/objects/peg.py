@@ -90,6 +90,7 @@ class PegObject(SceneObject):
             f"heca_peg_{i}_rot": quat,
             f"heca_peg_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
             f"heca_peg_{i}_ste": 0,
+            f"heca_peg_{i}_loc": "default",
         }
 
     def get_info_target(self, env):

@@ -53,31 +53,46 @@ class WindowObject(SceneObject):
         from ogbench.manipspace import lie
 
         sid = self._site_id
-        quat = np.array(lie.SO3.from_matrix(env._data.site_xmat[sid].reshape(3, 3)).wxyz.copy())
+        quat = np.array(
+            lie.SO3.from_matrix(env._data.site_xmat[sid].reshape(3, 3)).wxyz.copy()
+        )
         return {
             f"privileged_{self.name}_pos": env._data.joint(self.joint_name).qpos.copy(),
             f"privileged_{self.name}_vel": env._data.joint(self.joint_name).qvel.copy(),
             f"privileged_{self.name}_handle_pos": env._data.site_xpos[sid].copy(),
             f"privileged_{self.name}_handle_state": 1 if self.is_closed(env) else 0,
-            f"privileged_{self.name}_handle_yaw": np.array([
-                lie.SO3.from_matrix(env._data.site_xmat[sid].reshape(3, 3)).compute_yaw_radians()
-            ]),
+            f"privileged_{self.name}_handle_yaw": np.array(
+                [
+                    lie.SO3.from_matrix(
+                        env._data.site_xmat[sid].reshape(3, 3)
+                    ).compute_yaw_radians()
+                ]
+            ),
             f"privileged_{self.name}_handle_quat": quat,
-            # -- heca keys --
-            f"heca_{self.name}_pos_base": env._data.joint(self.joint_name).xanchor.copy(),
+            f"heca_{self.name}_pos_base": env._data.joint(
+                self.joint_name
+            ).xanchor.copy(),
             f"heca_{self.name}_pos_ee": env._data.site_xpos[sid].copy(),
             f"heca_{self.name}_rot": quat,
-            f"heca_{self.name}_yaw": np.array([
-                lie.SO3.from_matrix(env._data.site_xmat[sid].reshape(3, 3)).compute_yaw_radians()
-            ]),
+            f"heca_{self.name}_yaw": np.array(
+                [
+                    lie.SO3.from_matrix(
+                        env._data.site_xmat[sid].reshape(3, 3)
+                    ).compute_yaw_radians()
+                ]
+            ),
             f"heca_{self.name}_ste": 1 if self.is_closed(env) else 0,
-            f"heca_{self.name}_displacement": env._data.joint(self.joint_name).qpos.copy(),
+            f"heca_{self.name}_displacement": env._data.joint(
+                self.joint_name
+            ).qpos.copy(),
         }
 
     def get_info_target(self, env):
         return {
             f"heca_target_{self.name}_pos": np.array([self._target_val]),
-            f"heca_target_{self.name}_pos_ee": env._data.site_xpos[self._target_site_id].copy(),
+            f"heca_target_{self.name}_pos_ee": env._data.site_xpos[
+                self._target_site_id
+            ].copy(),
         }
 
     def get_task_probability(self, env):
@@ -108,10 +123,12 @@ class WindowObject(SceneObject):
             env._model.joint(self.joint_name).damping[0] = 2.0
 
     def add_observation(self, env, ob, ob_info):
-        ob.extend([
-            ob_info[f"privileged_{self.name}_pos"] * self.scaler,
-            ob_info[f"privileged_{self.name}_vel"],
-        ])
+        ob.extend(
+            [
+                ob_info[f"privileged_{self.name}_pos"] * self.scaler,
+                ob_info[f"privileged_{self.name}_vel"],
+            ]
+        )
 
     def add_oracle_obs(self, env, ob, ob_info):
         ob.append(ob_info[f"privileged_{self.name}_pos"] * self.scaler)

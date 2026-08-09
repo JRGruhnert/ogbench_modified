@@ -63,7 +63,7 @@ class LeverPlanOracle(PlanOracle):
         for i in range(len(arc_poses)):
             times[f"arc_{i}"] = self._dt * 0.4
         times["release"] = self._dt * 0.5
-        times["clearance"] = self._dt * 0.5
+        times["leave"] = self._dt * 0.5
         times["final"] = self._dt
 
         # Grasps

@@ -43,9 +43,13 @@ class SceneEnvBase(ManipSpaceEnv):
             for _ in range(2):
                 self.step(self.action_space.sample())
             self._cur_goal_ob = (
-                self.compute_oracle_observation() if self._use_oracle_rep else self.compute_ob_info()
+                self.compute_oracle_observation()
+                if self._use_oracle_rep
+                else self.compute_ob_info()
             )
-            self._cur_goal_rendered = self.get_pixel_observation() if self._render_goal else None
+            self._cur_goal_rendered = (
+                self.get_pixel_observation() if self._render_goal else None
+            )
 
             self._data.qpos[:] = saved_qpos
             self._data.qvel[:] = saved_qvel
@@ -177,13 +181,18 @@ class SceneEnvBase(ManipSpaceEnv):
             for obj in self.objects:
                 ob_info.update(obj.get_info_target(self))
             # Oracle success: is the current target object at its goal?
-            ob_info["oracle_success"] = float(any(
-                val for val, name in self._compute_successes() if name == self._target_task
-            ))
+            ob_info["oracle_success"] = float(
+                any(
+                    val
+                    for val, name in self._compute_successes()
+                    if name == self._target_task
+                )
+            )
             # Workspace normalization metadata (same values as compute_observation)
             ob_info["meta_xyz_center"] = np.array([0.425, 0.0, 0.0])
             ob_info["meta_xyz_scaler"] = np.array([10.0])
             ob_info["meta_gripper_scaler"] = np.array([3.0])
+            ob_info["meta_prismatic_max"] = np.array([3.0])
 
     def compute_observation(self):
         if self._ob_type == "pixels":

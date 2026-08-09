@@ -78,7 +78,7 @@ class CubePlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "block_initial": self.to_pose(
-                pos=info[f"heca_cube_{i}_pos_base"],
+                pos=info[f"heca_cube_{i}_pos"],
                 yaw=info[f"heca_cube_{i}_yaw"][0],
             ),
             "block_goal": self.to_pose(

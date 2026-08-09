@@ -9,11 +9,12 @@ class FaucetObject(SceneObject):
     joint_name = "faucet_knob"
     site_name = "faucet_handle_center"
     target_site_name = "faucet_handle_center_target"
-    pos_range = (-1.57, 1.57)
     scaler = 4.0
     tolerance = 0.15
 
-    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), lock_rule=None):
+    DEFAULT_HANDLE_RADIUS = 0.105
+
+    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), lock_rule=None, pos_range=(-1.57, 1.57), handle_radius=0.105):
         super().__init__(id, pos, euler)
         if id > 0:
             self.joint_name = f"{self.joint_name}_{id}"
@@ -21,6 +22,8 @@ class FaucetObject(SceneObject):
             self.target_site_name = f"{self.target_site_name}_{id}"
         self._lock_rule = lock_rule or {}
         self._target_val = 0.0
+        self.pos_range = pos_range
+        self.handle_radius = handle_radius
 
     def is_closed(self, env):
         return bool(env._data.joint(self.joint_name).qpos[0] <= -0.3)
@@ -29,6 +32,22 @@ class FaucetObject(SceneObject):
         self._site_id = env._model.site(self.site_name).id
         self._target_site_id = env._model.site(self.target_site_name).id
         self._body_id = env._model.body(self._jname("faucet_link")).id
+
+        if not np.isclose(self.handle_radius, self.DEFAULT_HANDLE_RADIUS):
+            ratio = self.handle_radius / self.DEFAULT_HANDLE_RADIUS
+
+            # Scale handle site position.
+            env._model.site_pos[self._site_id][1] = -self.handle_radius
+
+            # Scale virtual handle body position (holds the target site).
+            vid = env._model.body(self._jname("faucet_link_virtual_handle")).id
+            env._model.body_pos[vid][1] = -self.handle_radius
+
+            # Scale collision geom positions on the handle arm.
+            for g in range(env._model.ngeom):
+                if env._model.geom_bodyid[g] == self._body_id:
+                    if env._model.geom_pos[g][1] < 0:
+                        env._model.geom_pos[g][1] *= ratio
 
     def randomize(self, env):
         lo, hi = self.pos_range
@@ -67,9 +86,9 @@ class FaucetObject(SceneObject):
                     ).compute_yaw_radians()
                 ]
             ),
-            f"heca_{self.name}_ste": np.array([1 if self.is_closed(env) else 0]),
+            f"heca_{self.name}_ste": np.array([0]),#np.array([1 if self.is_closed(env) else 0]),
             f"heca_{self.name}_ste_min": np.array([0]),
-            f"heca_{self.name}_ste_max": np.array([1]),
+            f"heca_{self.name}_ste_max": np.array([0]),
             f"heca_{self.name}_ang": env._data.joint(self.joint_name).qpos.copy(),
             f"heca_{self.name}_ang_min": np.array([self.pos_range[0]]),
             f"heca_{self.name}_ang_max": np.array([self.pos_range[1]]),
@@ -118,5 +137,6 @@ class FaucetObject(SceneObject):
         pass
 
     def _set_site(self, env, val):
-        env._model.site(self.target_site_name).pos[0] = 0.105 * np.sin(val)
-        env._model.site(self.target_site_name).pos[1] = 0.105 * (1.0 - np.cos(val))
+        r = self.handle_radius
+        env._model.site(self.target_site_name).pos[0] = r * np.sin(val)
+        env._model.site(self.target_site_name).pos[1] = r * (1.0 - np.cos(val))

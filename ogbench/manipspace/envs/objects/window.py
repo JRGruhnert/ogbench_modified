@@ -64,9 +64,9 @@ class WindowObject(SceneObject):
                     ).compute_yaw_radians()
                 ]
             ),
-            f"heca_{self.name}_ste": np.array([1 if self.is_closed(env) else 0]),
+            f"heca_{self.name}_ste": np.array([0]),#np.array([1 if self.is_closed(env) else 0]),
             f"heca_{self.name}_ste_min": np.array([0]),
-            f"heca_{self.name}_ste_max": np.array([1]),
+            f"heca_{self.name}_ste_max": np.array([0]),
             f"heca_{self.name}_sca": env._data.joint(self.joint_name).qpos.copy(),
             f"heca_{self.name}_sca_min": np.array([self.pos_range[0]]),
             f"heca_{self.name}_sca_max": np.array([self.pos_range[1]]),

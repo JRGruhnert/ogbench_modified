@@ -17,7 +17,7 @@ class FaucetPlanOracle(PlanOracle):
         goal_angle,
         n_arc=6,
         push_offset=0.08,
-        radius=0.115,
+        radius=0.105,
     ):
         """Arc poses in the body's local frame (handle at [0, -radius, 0])."""
         handle_z = faucet_initial.translation()[2]
@@ -59,6 +59,7 @@ class FaucetPlanOracle(PlanOracle):
             plan_input["body_xmat"],
             plan_input["init_knob_angle"],
             plan_input["goal_knob_angle"],
+            radius=plan_input["handle_radius"],
         )
 
         # Poses
@@ -128,6 +129,7 @@ class FaucetPlanOracle(PlanOracle):
             ),
             "faucet_center": faucet_center,
             "body_xmat": body_xmat,
+            "handle_radius": faucet.handle_radius,
             "init_knob_angle": env._data.joint(faucet.joint_name).qpos[0],
             "goal_knob_angle": target_faucet_yaw,
         }

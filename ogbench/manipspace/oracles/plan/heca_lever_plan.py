@@ -9,27 +9,45 @@ class LeverPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def _arc_poses(
-        self, lever_initial, center, init_angle, goal_angle, n_arc=6, radius=0.12
+        self,
+        lever_initial,
+        center,
+        body_xmat,
+        init_angle,
+        goal_angle,
+        n_arc=6,
+        radius=0.12,
     ):
         """Compute arc poses for the lever handle moving in a vertical arc.
 
         The lever rotates around the X axis (hinge axis), so the handle moves
-        in the YZ plane.
+        in the YZ plane. Uses the body's rotation matrix and relative angles
+        for robustness to arbitrary base orientations.
 
         Returns (arc_poses, approach_pose).
         """
         base_yaw = self.get_yaw(lever_initial)
+        local_handle = np.array([0.0, -radius, 0.0])  # fixed in body frame
 
         arc_angles = np.linspace(init_angle, goal_angle, n_arc)
         arc_poses = []
         for angle in arc_angles:
-            y = center[1] - radius * np.cos(angle)
-            z = center[2] - radius * np.sin(angle)
-            pos = np.array([center[0], y, z])
+            dz = angle - init_angle
+            rot_dz = np.array(
+                [
+                    [1, 0, 0],
+                    [0, np.cos(dz), -np.sin(dz)],
+                    [0, np.sin(dz), np.cos(dz)],
+                ]
+            )
+            world = body_xmat @ rot_dz @ local_handle
+            pos = np.array(
+                [center[0] + world[0], center[1] + world[1], center[2] + world[2]]
+            )
             arc_poses.append(self.to_pose(pos=pos, yaw=base_yaw))
 
-        # First arc pose (initial handle position).
-        approach_pose = arc_poses[0]
+        # Use actual handle position from site for approach pose.
+        approach_pose = lever_initial
 
         return arc_poses, approach_pose
 
@@ -37,6 +55,7 @@ class LeverPlanOracle(PlanOracle):
         arc_poses, approach_pose = self._arc_poses(
             plan_input["lever_initial"],
             plan_input["lever_center"],
+            plan_input["body_xmat"],
             plan_input["init_angle"],
             plan_input["goal_angle"],
         )
@@ -45,7 +64,7 @@ class LeverPlanOracle(PlanOracle):
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(approach_pose, 0.08)
-        poses["grasp"] = approach_pose
+        poses["grasp"] = plan_input["lever_initial"]
         for i, p in enumerate(arc_poses):
             poses[f"arc_{i}"] = p
         poses["release"] = arc_poses[-1]
@@ -85,6 +104,7 @@ class LeverPlanOracle(PlanOracle):
 
         lever = env.get_object(f"lever_{i}")
         lever_center = env._data.xpos[lever._body_id].copy()
+        body_xmat = env._data.xmat[lever._body_id].reshape(3, 3).copy()
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -104,6 +124,7 @@ class LeverPlanOracle(PlanOracle):
                 yaw=info[f"heca_lever_{i}_yaw"][0],
             ),
             "lever_center": lever_center,
+            "body_xmat": body_xmat,
             "init_angle": env._data.joint(lever.joint_name).qpos[0],
             "goal_angle": lever._target_val,
         }

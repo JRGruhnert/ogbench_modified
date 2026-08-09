@@ -67,7 +67,7 @@ class WindowPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "window_initial": self.to_pose(
-                pos=info[f"heca_window_{i}_pos_ee"],
+                pos=info[f"heca_window_{i}_pos"],
                 yaw=info[f"heca_window_{i}_yaw"][0],
             ),
             "window_goal": self.to_pose(

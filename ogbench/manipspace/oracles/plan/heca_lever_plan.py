@@ -96,7 +96,7 @@ class LeverPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "lever_initial": self.to_pose(
-                pos=info[f"heca_lever_{i}_pos_ee"],
+                pos=info[f"heca_lever_{i}_pos"],
                 yaw=info[f"heca_lever_{i}_yaw"][0],
             ),
             "lever_goal": self.to_pose(

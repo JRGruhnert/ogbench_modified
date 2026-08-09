@@ -12,32 +12,38 @@ class FaucetPlanOracle(PlanOracle):
         self,
         faucet_initial,
         center,
+        body_xmat,
         init_angle,
         goal_angle,
         n_arc=6,
         push_offset=0.08,
-        radius=0.105,
+        radius=0.115,
     ):
+        """Arc poses in the body's local frame (handle at [0, -radius, 0])."""
         handle_z = faucet_initial.translation()[2]
         base_yaw = self.get_yaw(faucet_initial)
+        local_handle = np.array([0.0, -radius, 0.0])  # fixed in body frame
         arc_angles = np.linspace(init_angle, goal_angle, n_arc)
         arc_poses = []
         for angle in arc_angles:
-            xy = center[:2] + radius * np.array([np.sin(angle), -np.cos(angle)])
-            pos = np.array([xy[0], xy[1], handle_z])
-            yaw = base_yaw + (angle - init_angle)
+            dz = angle - init_angle
+            rot_dz = np.array([[np.cos(dz), -np.sin(dz), 0],
+                               [np.sin(dz),  np.cos(dz), 0],
+                               [0, 0, 1]])
+            world = body_xmat @ rot_dz @ local_handle
+            pos = np.array([center[0] + world[0], center[1] + world[1], handle_z])
+            yaw = base_yaw + dz
             arc_poses.append(self.to_pose(pos=pos, yaw=yaw))
 
+        # Tangent approach in local frame
         delta = goal_angle - init_angle
         if delta >= 0:
-            init_dir = np.array([-np.cos(init_angle), -np.sin(init_angle)])
+            local_dir = np.array([-1.0, 0.0, 0.0])  # approach from -x (CW side)
         else:
-            init_dir = np.array([np.cos(init_angle), np.sin(init_angle)])
-        approach_xy = (
-            center[:2]
-            + radius * np.array([np.sin(init_angle), -np.cos(init_angle)])
-            + init_dir * push_offset
-        )
+            local_dir = np.array([1.0, 0.0, 0.0])   # approach from +x (CCW side)
+        world_dir = body_xmat @ local_dir
+        world_handle = body_xmat @ local_handle
+        approach_xy = center[:2] + world_handle[:2] + world_dir[:2] * push_offset
         approach_pose = self.to_pose(
             pos=np.array([approach_xy[0], approach_xy[1], handle_z]),
             yaw=base_yaw,
@@ -50,6 +56,7 @@ class FaucetPlanOracle(PlanOracle):
         arc_poses, approach_pose = self._arc_poses(
             plan_input["faucet_initial"],
             plan_input["faucet_center"],
+            plan_input["body_xmat"],
             plan_input["init_knob_angle"],
             plan_input["goal_knob_angle"],
         )
@@ -100,6 +107,7 @@ class FaucetPlanOracle(PlanOracle):
         faucet = env.get_object(f"faucet_{i}")
 
         faucet_center = env._data.xpos[faucet._body_id].copy()
+        body_xmat = env._data.xmat[faucet._body_id].reshape(3, 3).copy()
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -111,7 +119,7 @@ class FaucetPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "faucet_initial": self.to_pose(
-                pos=info[f"heca_faucet_{i}_pos_ee"],
+                pos=info[f"heca_faucet_{i}_pos"],
                 yaw=info[f"heca_faucet_{i}_yaw"][0],
             ),
             "faucet_goal": self.to_pose(
@@ -119,6 +127,7 @@ class FaucetPlanOracle(PlanOracle):
                 yaw=info[f"heca_faucet_{i}_yaw"][0],
             ),
             "faucet_center": faucet_center,
+            "body_xmat": body_xmat,
             "init_knob_angle": env._data.joint(faucet.joint_name).qpos[0],
             "goal_knob_angle": target_faucet_yaw,
         }

@@ -15,9 +15,9 @@ class LidPlanOracle(PlanOracle):
             pos=plan_input["lid_initial"].translation(),
             yaw=grab_yaw,
         )
-        lid_goal = self.equal_yaw(
-            obj_yaw=place_yaw,
-            translation=plan_input["lid_goal"].translation(),
+        lid_goal = self.to_pose(
+            pos=plan_input["lid_goal"].translation(),
+            yaw=place_yaw,
         )
 
         # Poses
@@ -80,7 +80,7 @@ class LidPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "lid_initial": self.to_pose(
-                pos=info[f"heca_lid_{i}_pos_ee"],
+                pos=info[f"heca_lid_{i}_pos"],
                 yaw=info[f"heca_lid_{i}_yaw"][0],
             ),
             "lid_goal": self.to_pose(

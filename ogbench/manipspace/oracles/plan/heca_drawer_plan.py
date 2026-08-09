@@ -72,7 +72,7 @@ class DrawerPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "drawer_initial": self.to_pose(
-                pos=info[f"heca_drawer_{i}_pos_ee"],
+                pos=info[f"heca_drawer_{i}_pos"],
                 yaw=info[f"heca_drawer_{i}_yaw"][0],
             ),
             "drawer_goal": self.to_pose(

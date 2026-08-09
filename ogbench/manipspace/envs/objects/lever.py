@@ -56,7 +56,7 @@ class LeverObject(SceneObject):
             lie.SO3.from_matrix(env._data.site_xmat[sid].reshape(3, 3)).wxyz.copy()
         )
         return {
-            f"heca_{self.name}_pos_ee": env._data.site_xpos[sid].copy(),
+            f"heca_{self.name}_pos": env._data.site_xpos[sid].copy(),
             f"heca_{self.name}_rot": quat,
             f"heca_{self.name}_yaw": np.array(
                 [

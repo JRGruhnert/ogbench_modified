@@ -62,13 +62,11 @@ class CubeObject(SceneObject):
         env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(
             env.np_random.uniform(0, 2 * np.pi)
         ).wxyz.tolist()
-        # Initialize mocap target to current position.
-        env._data.mocap_pos[self._target_mocap_id] = (
-            env._data.joint(self.joint_name).qpos[:3].copy()
-        )
-        env._data.mocap_quat[self._target_mocap_id] = (
-            env._data.joint(self.joint_name).qpos[3:].copy()
-        )
+        # Init mocap to a random goal — handle_target overwrites when selected.
+        target_bounds = self._target_bounds if self._target_bounds is not None else env._target_sampling_bounds
+        xy = env.np_random.uniform(*target_bounds)
+        env._data.mocap_pos[self._target_mocap_id] = (*xy, 0.02)
+        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
 
     def init_to_goal(self, env, task_info):
         xyz = task_info["goal"]["block_xyzs"][0]

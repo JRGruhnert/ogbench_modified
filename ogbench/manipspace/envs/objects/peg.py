@@ -18,6 +18,7 @@ class PegObject(SceneObject):
 
     def post_compilation(self, env):
         self._target_mocap_id = env._model.body(self._jname("peg_target_0")).mocapid[0]
+        self._handle_site_id = env._model.site(self._jname("peg_handle_site_0")).id
 
     def randomize(self, env):
         bounds = (
@@ -25,21 +26,14 @@ class PegObject(SceneObject):
             if self._sampling_bounds is not None
             else env._object_sampling_bounds
         )
-        for _ in range(20):
-            xy = env.np_random.uniform(*bounds)
-            pos = np.array([*xy, 0.02])
-            # Keep distance from mocap target
-            target = env._data.mocap_pos[self._target_mocap_id][:2]
-            if np.linalg.norm(pos[:2] - target) > 0.08:
-                break
-        env._data.joint(self.joint_name).qpos[:3] = pos
-        env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(
-            env.np_random.uniform(0, 2 * np.pi)
-        ).wxyz.tolist()
-        env._data.mocap_pos[self._target_mocap_id] = pos.copy()
-        env._data.mocap_quat[self._target_mocap_id] = (
-            env._data.joint(self.joint_name).qpos[3:].copy()
-        )
+        xy = env.np_random.uniform(*bounds)
+        env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
+        env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
+        # Init mocap to a random goal — handle_target overwrites when selected.
+        bounds = self._sampling_bounds if self._sampling_bounds is not None else [[0.3, -0.3], [0.55, 0.3]]
+        xy = env.np_random.uniform(*bounds)
+        env._data.mocap_pos[self._target_mocap_id] = (*xy, 0.02)
+        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
 
     def init_to_goal(self, env, task_info):
         xyz = task_info["goal"]["peg_xyzs"][0]
@@ -72,6 +66,7 @@ class PegObject(SceneObject):
         quat = q.qpos[3:].copy()
         i = self.id
         return {
+            f"heca_peg_{i}_pos_base": q.qpos[:3].copy(),
             f"heca_peg_{i}_pos": env._data.site_xpos[
                 env._model.site(self._jname("peg_handle_site_0")).id
             ].copy(),
@@ -102,12 +97,16 @@ class PegObject(SceneObject):
             if self._sampling_bounds is not None
             else [[0.3, -0.3], [0.55, 0.3]]
         )
-        xy = env.np_random.uniform(*bounds)
-        yaw = env.np_random.uniform(0, 2 * np.pi)
-        env._data.mocap_pos[self._target_mocap_id] = (*xy, 0.02)
-        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(
-            yaw
-        ).wxyz.tolist()
+        for _ in range(40):
+            xy = env.np_random.uniform(*bounds)
+            yaw = env.np_random.uniform(0, 2 * np.pi)
+            tar_pos = np.array([*xy, 0.02])
+            tar_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
+            handle_pos = env._data.site_xpos[self._handle_site_id][:2]
+            if np.linalg.norm(handle_pos - tar_pos[:2]) > 0.08:
+                break
+        env._data.mocap_pos[self._target_mocap_id] = tar_pos
+        env._data.mocap_quat[self._target_mocap_id] = tar_ori
 
     def set_state(self, env, value):
         """value is a (pos, quat) tuple."""

@@ -77,7 +77,7 @@ class PegPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "peg_initial": self.to_pose(
-                pos=info[f"heca_peg_{i}_pos_ee"],
+                pos=info[f"heca_peg_{i}_pos"],
                 yaw=info[f"heca_peg_{i}_yaw"][0],
             ),
             "peg_goal": self.to_pose(

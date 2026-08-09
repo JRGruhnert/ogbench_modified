@@ -38,13 +38,16 @@ class CubePlanOracle(PlanOracle):
         distance = np.linalg.norm(
             poses["initial"].translation() - poses["approach"].translation()
         )
+        distance2 = np.linalg.norm(
+            poses["approach"].translation() - poses["approach2"].translation()
+        )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt * (0.5 + distance * 4)
+        times["approach"] = self._dt * (0.8 + distance * 4)
         times["pick-start"] = self._dt * 1.5
         times["pick"] = self._dt
         times["pick-end"] = self._dt
-        times["approach2"] = self._dt
+        times["approach2"] = self._dt * (0.8 + distance2 * 4)
         times["place-start"] = self._dt * 1.5
         times["place"] = self._dt
         times["place-end"] = self._dt

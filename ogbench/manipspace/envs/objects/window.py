@@ -82,7 +82,7 @@ class WindowObject(SceneObject):
 
     def get_task_probability(self, env):
         if self._is_locked(env):
-            return 0.25
+            return 0.0
         return 1.0
 
     def handle_target(self, env):

@@ -29,9 +29,12 @@ class WindowPlanOracle(PlanOracle):
         poses["final"] = plan_input["effector_goal"]
 
         # Times
+        distance = np.linalg.norm(
+            poses["initial"].translation() - poses["approach"].translation()
+        )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt
+        times["approach"] = self._dt * (0.8 + distance * 4)
         times["grasp-start"] = self._dt * 0.5
         times["grasp-end"] = self._dt * 0.5
         times["move"] = self._dt * 0.5

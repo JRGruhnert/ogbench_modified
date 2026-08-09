@@ -39,7 +39,7 @@ class PegPlanOracle(PlanOracle):
         )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt * (0.5 + distance * 4)
+        times["approach"] = self._dt * (0.8 + distance * 4)
         times["pick-start"] = self._dt * 1.5
         times["pick"] = self._dt
         times["pick-end"] = self._dt

@@ -28,7 +28,7 @@ flags.DEFINE_integer("seed", 0, "Random seed.")
 flags.DEFINE_string("env_name", "cube-single-v0", "Environment name.")
 flags.DEFINE_string("dataset_type", "play", "Dataset type.")
 flags.DEFINE_string("save_path", None, "Save path.")
-flags.DEFINE_float("noise", 0.1, "Action noise level.")
+flags.DEFINE_float("noise", 0.05, "Action noise level.")
 flags.DEFINE_float(
     "noise_smoothing", 0.5, "Action noise smoothing level for PlanOracle."
 )

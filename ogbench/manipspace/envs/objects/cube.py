@@ -130,14 +130,19 @@ class CubeObject(SceneObject):
         }
 
     def get_task_probability(self, env):
-        if self._containers and self._is_inside_any_container(env):
-            return 0.0
+        if self._containers:
+            pos = env._data.joint(self.joint_name).qpos[:3]
+            for c in self._containers:
+                if c.contains(env, pos) and not c.is_open(env):
+                    return 0.0
         return 1.0
 
     def handle_target(self, env, p_stack=0.5):
-        available = not self._is_inside_any_container(env) if self._containers else True
-        if not available:
-            return
+        if self._containers:
+            pos = env._data.joint(self.joint_name).qpos[:3]
+            for c in self._containers:
+                if c.contains(env, pos) and not c.is_open(env):
+                    return
 
         open_containers = [c for c in self._containers if c.is_open(env)]
         use_container = open_containers and env.np_random.uniform() < 0.3

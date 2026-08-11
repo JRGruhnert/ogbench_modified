@@ -64,8 +64,8 @@ class PegPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        target_pos = info[f"heca_target_peg_{i}_pos"]
-        target_yaw = info[f"heca_target_peg_{i}_yaw"][0]
+        target_pos = info[f"heca_target_peg{i}_pos"]
+        target_yaw = info[f"heca_target_peg{i}_yaw"][0]
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -77,14 +77,14 @@ class PegPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "peg_initial": self.to_pose(
-                pos=info[f"heca_peg_{i}_pos"],
-                yaw=info[f"heca_peg_{i}_yaw"][0],
+                pos=info[f"heca_peg{i}_pos"],
+                yaw=info[f"heca_peg{i}_yaw"][0],
             ),
             "peg_goal": self.to_pose(
                 pos=target_pos,
                 yaw=target_yaw,
             ),
-            "ring_center": info[f"heca_peg_{i}_pos_base"],
+            "ring_center": info[f"heca_peg{i}_pos_base"],
         }
 
         self.finalize_plan(plan_input, info)

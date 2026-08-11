@@ -68,8 +68,8 @@ class CubePlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        target_block_pos = info[f"heca_target_cube_{i}_pos"]
-        target_block_yaw = info[f"heca_target_cube_{i}_yaw"]
+        target_block_pos = info[f"heca_target_cube{i}_pos"]
+        target_block_yaw = info[f"heca_target_cube{i}_yaw"]
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -81,8 +81,8 @@ class CubePlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "block_initial": self.to_pose(
-                pos=info[f"heca_cube_{i}_pos"],
-                yaw=info[f"heca_cube_{i}_yaw"][0],
+                pos=info[f"heca_cube{i}_pos"],
+                yaw=info[f"heca_cube{i}_yaw"][0],
             ),
             "block_goal": self.to_pose(
                 pos=target_block_pos,

@@ -110,21 +110,21 @@ class CubeObject(SceneObject):
         quat = q.qpos[3:].copy()
         i = self.id
         return {
-            f"heca_cube_{i}_pos": q.qpos[:3].copy(),
-            f"heca_cube_{i}_rot": quat,
-            f"heca_cube_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
-            f"heca_cube_{i}_ste": np.array([0]),
-            f"heca_cube_{i}_ste_min": np.array([0]),
-            f"heca_cube_{i}_ste_max": np.array([0]),
-            f"heca_cube_{i}_loc": self._get_location(env),
+            f"heca_{self.name}_pos": q.qpos[:3].copy(),
+            f"heca_{self.name}_rot": quat,
+            f"heca_{self.name}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
+            f"heca_{self.name}_ste": np.array([0]),
+            f"heca_{self.name}_ste_min": np.array([0]),
+            f"heca_{self.name}_ste_max": np.array([0]),
+            f"heca_{self.name}_loc": self._get_location(env),
         }
 
     def get_info_target(self, env):
         mid = self._target_mocap_id
         i = self.id
         return {
-            f"heca_target_cube_{i}_pos": env._data.mocap_pos[mid].copy(),
-            f"heca_target_cube_{i}_yaw": np.array(
+            f"heca_target_{self.name}_pos": env._data.mocap_pos[mid].copy(),
+            f"heca_target_{self.name}_yaw": np.array(
                 [lie.SO3(wxyz=env._data.mocap_quat[mid]).compute_yaw_radians()]
             ),
         }

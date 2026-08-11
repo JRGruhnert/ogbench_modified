@@ -138,7 +138,7 @@ def main(_):
     num_episodes = FLAGS.num_episodes
 
     if not FLAGS.dry_run:
-        save_path = FLAGS.save_path or "sample"
+        save_path = f"data/{FLAGS.env_name}"
         if not save_path.endswith(".h5"):
             save_path += ".h5"
         pathlib.Path(save_path).parent.mkdir(parents=True, exist_ok=True)
@@ -200,6 +200,7 @@ def main(_):
                         )
                 action = np.clip(action, -1, 1)
                 next_ob, reward, terminated, truncated, info = env.step(action)
+                #print(next_ob.keys())
                 done = terminated or truncated
 
                 if agent.done:
@@ -217,7 +218,7 @@ def main(_):
 
                 for k, v in info.items():
                     if isinstance(v, np.ndarray):
-                        episode_buffer[k].append(v)
+                        episode_buffer[k].append(v.ravel())
                     elif np.isscalar(v) and not isinstance(v, (str, bytes)):
                         episode_buffer[k].append(np.array([v], dtype=np.float32))
 

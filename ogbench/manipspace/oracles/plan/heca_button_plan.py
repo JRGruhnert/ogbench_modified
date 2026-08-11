@@ -44,7 +44,7 @@ class ButtonPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        target_button_top_pos = info[f"heca_target_button_{i}_pos"]
+        target_button_top_pos = info[f"heca_target_button{i}_pos"]
 
         plan_input = {
             "effector_initial": self.to_pose(

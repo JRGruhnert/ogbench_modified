@@ -197,10 +197,10 @@ class SceneEnvBase(ManipSpaceEnv):
     def compute_observation(self):
         if self._ob_type == "pixels":
             return self.get_pixel_observation()
-        return {}
+        return np.zeros(1)
 
     def compute_oracle_observation(self):
-        return {}
+        return np.zeros(1)
 
     def compute_reward(self):
         successes = [val for val, _ in self._compute_successes()]

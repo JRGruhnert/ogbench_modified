@@ -26,7 +26,7 @@ vi_dict = dict(
 )
 
 gt_dict = dict(
-    ob_type="pixels",
+    #ob_type="states",
     width=256,
     height=256,
     visualize_info=False,

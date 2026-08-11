@@ -35,7 +35,7 @@ class SceneObject:
         self.id = id
         self.pos = pos
         self.euler = euler
-        self.name = f"{self.name}_{id}"
+        self.name = f"{self.name}{id}"
 
     @property
     def _suf(self):

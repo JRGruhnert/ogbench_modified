@@ -60,7 +60,7 @@ class DrawerPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        target_handle_pos = info[f"heca_target_drawer_{i}_pos"]
+        target_handle_pos = info[f"heca_target_drawer{i}_pos"]
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -72,12 +72,12 @@ class DrawerPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "drawer_initial": self.to_pose(
-                pos=info[f"heca_drawer_{i}_pos"],
-                yaw=info[f"heca_drawer_{i}_yaw"][0],
+                pos=info[f"heca_drawer{i}_pos"],
+                yaw=info[f"heca_drawer{i}_yaw"][0],
             ),
             "drawer_goal": self.to_pose(
                 pos=target_handle_pos,
-                yaw=info[f"heca_drawer_{i}_yaw"][0],
+                yaw=info[f"heca_drawer{i}_yaw"][0],
             ),
         }
 

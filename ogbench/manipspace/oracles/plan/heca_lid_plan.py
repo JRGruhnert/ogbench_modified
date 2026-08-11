@@ -67,8 +67,8 @@ class LidPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        target_pos = info[f"heca_target_lid_{i}_pos"]
-        target_yaw = info[f"heca_target_lid_{i}_yaw"][0]
+        target_pos = info[f"heca_target_lid{i}_pos"]
+        target_yaw = info[f"heca_target_lid{i}_yaw"][0]
 
         plan_input = {
             "effector_initial": self.to_pose(
@@ -80,8 +80,8 @@ class LidPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "lid_initial": self.to_pose(
-                pos=info[f"heca_lid_{i}_pos"],
-                yaw=info[f"heca_lid_{i}_yaw"][0],
+                pos=info[f"heca_lid{i}_pos"],
+                yaw=info[f"heca_lid{i}_yaw"][0],
             ),
             "lid_goal": self.to_pose(
                 pos=target_pos,

@@ -37,27 +37,24 @@ class ButtonObject(SceneObject):
         return (ok, self.name)
 
     def get_info(self, env):
-        idx = self.id
         return {
-            f"heca_button_{idx}_pos": env._data.site_xpos[self._site_ids[0]].copy(),
-            f"heca_button_{idx}_rot": self.default_quaternion(),
-            f"heca_button_{idx}_ste": np.array([int(self._cur_state[0])]),
-            f"heca_button_{idx}_yaw": np.array([0.0]),
-            f"heca_button_{idx}_ste_min": np.array([0]),
-            f"heca_button_{idx}_ste_max": np.array([self._num_states - 1]),
+            f"heca_{self.name}_pos": env._data.site_xpos[self._site_ids[0]].copy(),
+            f"heca_{self.name}_rot": self.default_quaternion(),
+            f"heca_{self.name}_ste": np.array([int(self._cur_state[0])]),
+            f"heca_{self.name}_yaw": np.array([0.0]),
+            f"heca_{self.name}_ste_min": np.array([0]),
+            f"heca_{self.name}_ste_max": np.array([self._num_states - 1]),
         }
 
     def get_info_target(self, env):
-        if env._target_task != self.name:
-            return {}
         return {
-            f"heca_target_button_{self.id}_ste": np.array(
+            f"heca_target_{self.name}_ste": np.array(
                 [self._target_button_states[0]]
             ),
-            f"heca_target_button_{self.id}_pos": env._data.site_xpos[
+            f"heca_target_{self.name}_pos": env._data.site_xpos[
                 self._site_ids[0]
             ].copy(),
-            f"heca_target_button_{self.id}_rot": self.default_quaternion(),
+            f"heca_target_{self.name}_rot": self.default_quaternion(),
         }
 
     def handle_target(self, env):

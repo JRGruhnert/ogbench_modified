@@ -103,9 +103,9 @@ class FaucetPlanOracle(PlanOracle):
     def reset(self, ob, info):
         env = self._env.unwrapped
         i = self._object_id
-        target_handle_pos = info[f"heca_target_faucet_{i}_pos"]
-        target_faucet_yaw = info[f"heca_target_faucet_{i}_ang"][0]
-        faucet = env.get_object(f"faucet_{i}")
+        target_handle_pos = info[f"heca_target_faucet{i}_pos"]
+        target_faucet_yaw = info[f"heca_target_faucet{i}_ang"][0]
+        faucet = env.get_object(f"faucet{i}")
 
         faucet_center = env._data.xpos[faucet._body_id].copy()
         body_xmat = env._data.xmat[faucet._body_id].reshape(3, 3).copy()
@@ -120,12 +120,12 @@ class FaucetPlanOracle(PlanOracle):
                 yaw=0.0,
             ),
             "faucet_initial": self.to_pose(
-                pos=info[f"heca_faucet_{i}_pos"],
-                yaw=info[f"heca_faucet_{i}_yaw"][0],
+                pos=info[f"heca_faucet{i}_pos"],
+                yaw=info[f"heca_faucet{i}_yaw"][0],
             ),
             "faucet_goal": self.to_pose(
                 pos=target_handle_pos,
-                yaw=info[f"heca_faucet_{i}_yaw"][0],
+                yaw=info[f"heca_faucet{i}_yaw"][0],
             ),
             "faucet_center": faucet_center,
             "body_xmat": body_xmat,

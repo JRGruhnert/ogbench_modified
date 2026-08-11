@@ -75,23 +75,23 @@ class LidObject(SceneObject):
         quat = q.qpos[3:].copy()
         i = self.id
         return {
-            f"heca_lid_{i}_pos": env._data.site_xpos[
+            f"heca_{self.name}_pos": env._data.site_xpos[
                 env._model.site(self._jname("box_lid_handle_center_0")).id
             ].copy(),
-            f"heca_lid_{i}_rot": quat,
-            f"heca_lid_{i}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
-            f"heca_lid_{i}_ste": np.array([0]),
-            f"heca_lid_{i}_ste_min": np.array([0]),
-            f"heca_lid_{i}_ste_max": np.array([0]),
-            f"heca_lid_{i}_loc": "default",
+            f"heca_{self.name}_rot": quat,
+            f"heca_{self.name}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
+            f"heca_{self.name}_ste": np.array([0]),
+            f"heca_{self.name}_ste_min": np.array([0]),
+            f"heca_{self.name}_ste_max": np.array([0]),
+            f"heca_{self.name}_loc": "default",
         }
 
     def get_info_target(self, env):
         mid = self._target_mocap_id
         i = self.id
         return {
-            f"heca_target_lid_{i}_pos": env._data.mocap_pos[mid].copy(),
-            f"heca_target_lid_{i}_yaw": np.array(
+            f"heca_target_{self.name}_pos": env._data.mocap_pos[mid].copy(),
+            f"heca_target_{self.name}_yaw": np.array(
                 [lie.SO3(wxyz=env._data.mocap_quat[mid]).compute_yaw_radians()]
             ),
         }

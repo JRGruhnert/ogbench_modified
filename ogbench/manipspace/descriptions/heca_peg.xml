@@ -51,7 +51,7 @@
             <site name="peg_handle_site_0" pos="0 -0.078 0" size="0.005" rgba="1 1 1 1" group="5" />
         </body>
         <body name="peg_target_0" pos="0.45 0.05 0.02" mocap="true">
-            <geom material="asmbly_metal" type="cylinder" size="0.012 0.04" />
+            <geom material="asmbly_metal" type="cylinder" size="0.010 0.04" />
         </body>
     </worldbody>
 </mujoco>

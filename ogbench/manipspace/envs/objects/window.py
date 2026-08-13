@@ -19,11 +19,16 @@ class WindowObject(SceneObject):
             self.joint_name = f"{self.joint_name}_{id}"
             self.site_name = f"{self.site_name}_{id}"
             self.target_site_name = f"{self.target_site_name}_{id}"
-        self._lock_rule = locks or {}
+        self._lock_rule = locks or []
         self._target_val = 0.0
 
     def is_closed(self, env):
         return bool(env._data.joint(self.joint_name).qpos[0] <= 0.1)
+
+    def does_lock(self, env, value):
+        """Return True when the window's current displacement is close to `value`."""
+        disp = env._data.joint(self.joint_name).qpos[0]
+        return bool(np.isclose(disp, value, atol=0.01))
 
     def post_compilation(self, env):
         self._site_id = env._model.site(self.site_name).id

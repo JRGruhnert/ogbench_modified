@@ -18,7 +18,7 @@ class DrawerObject(SceneObject):
     ):
         super().__init__(id, pos, euler)
         self.drawer_center = drawer_center or np.array([0.33, -0.24, 0.066])
-        self._lock_rule = locks or {}
+        self._lock_rule = locks or []
         self._target_val = 0.0
         if id > 0:
             self.joint_name = f"{self.joint_name}_{id}"
@@ -27,6 +27,11 @@ class DrawerObject(SceneObject):
 
     def is_closed(self, env):
         return bool(env._data.joint(self.joint_name).qpos[0] >= -0.08)
+
+    def does_lock(self, env, value):
+        """Return True when the drawer's current displacement is close to `value`."""
+        disp = env._data.joint(self.joint_name).qpos[0]
+        return bool(np.isclose(disp, value, atol=0.01))
 
     def post_compilation(self, env):
         self._site_id = env._model.site(self.site_name).id

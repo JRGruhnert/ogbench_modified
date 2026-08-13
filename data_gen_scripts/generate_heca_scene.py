@@ -1,3 +1,4 @@
+import os
 import pathlib
 import time
 from collections import defaultdict
@@ -21,6 +22,7 @@ from ogbench.manipspace.oracles.plan.heca_faucet_plan import FaucetPlanOracle
 from ogbench.manipspace.oracles.plan.heca_lever_plan import LeverPlanOracle
 from ogbench.manipspace.oracles.plan.heca_peg_plan import PegPlanOracle
 from ogbench.manipspace.oracles.plan.heca_lid_plan import LidPlanOracle
+from ogbench.manipspace.oracles.plan.heca_slider_plan import SliderPlanOracle
 
 FLAGS = flags.FLAGS
 
@@ -127,6 +129,13 @@ def main(_):
                 )
             elif name.startswith("lid"):
                 agents[name] = LidPlanOracle(
+                    env=env,
+                    object_id=oid,
+                    noise=FLAGS.noise,
+                    noise_smoothing=FLAGS.noise_smoothing,
+                )
+            elif name.startswith("slider"):
+                agents[name] = SliderPlanOracle(
                     env=env,
                     object_id=oid,
                     noise=FLAGS.noise,
@@ -253,10 +262,16 @@ def main(_):
                     _flush_episode(episode_buffer)
                 break
             else:
+                if FLAGS.dry_run:
+                    env.unwrapped.close_passive_viewer()
                 print("Unhealthy episode, retrying...", flush=True)
                 episode_buffer = defaultdict(list)
 
         total_steps += step
+
+    if FLAGS.dry_run:
+        env.unwrapped.close_passive_viewer()
+    env.close()
 
     if not FLAGS.dry_run:
         save_file.close()
@@ -264,6 +279,11 @@ def main(_):
     print("Done.")
     if not FLAGS.dry_run:
         print(f"  saved → {save_path}")
+
+    # Force the process to exit cleanly. MuJoCo's GLFW/viewer can leave a
+    # non-daemon thread running, which would otherwise keep the terminal alive
+    # after `main` returns.
+    os._exit(0)
 
 
 if __name__ == "__main__":

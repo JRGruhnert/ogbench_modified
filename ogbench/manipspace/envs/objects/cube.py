@@ -145,7 +145,7 @@ class CubeObject(SceneObject):
                     return
 
         open_containers = [c for c in self._containers if c.is_open(env)]
-        use_container = open_containers and env.np_random.uniform() < 0.3
+        use_container = open_containers and env.np_random.uniform() < 0.5
 
         if use_container:
             container = open_containers[env.np_random.choice(len(open_containers))]

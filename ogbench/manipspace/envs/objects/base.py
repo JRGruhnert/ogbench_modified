@@ -142,11 +142,29 @@ class SceneObject:
         pass
 
     def _is_locked(self, env):
-        """Locked when any rule object's state doesn't match its unlock state."""
-        for name, unlock_state in getattr(self, "_lock_rule", {}).items():
-            for obj in env._objects:
-                if obj.name == name and obj.get_state() != unlock_state:
-                    return True
+        """Locked when any lock rule (AND of its entries) is satisfied.
+
+        `_lock_rule` is a list of dicts. The list is OR and each dict is AND.
+        """
+        lock_rule = getattr(self, "_lock_rule", [])
+        if isinstance(lock_rule, dict):
+            lock_rule = [lock_rule]
+        for rule in lock_rule:
+            if all(
+                self._rule_entry_matches(env, name, value)
+                for name, value in rule.items()
+            ):
+                return True
+        return False
+
+    def _rule_entry_matches(self, env, name, value) -> bool:
+        for obj in env._objects:
+            if obj.name == name and obj.does_lock(env, value):
+                return True
+        return False
+
+    def does_lock(self, env, value) -> bool:
+        """Return True if this object's current state equals `value` (lock state/angle)."""
         return False
 
     def health_check_and_colors(self, env, successes):

@@ -9,11 +9,13 @@ class PegPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        grab_yaw = self.get_yaw(plan_input["peg_initial"]) + np.pi / 2
-        peg_initial = self.to_pose(
-            pos=plan_input["peg_initial"].translation(),
-            yaw=grab_yaw,
+        peg_initial = self.shortest_yaw(
+            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
+            obj_yaw=self.get_yaw(plan_input["peg_initial"]) + np.pi / 2,
+            translation=plan_input["peg_initial"].translation(),
+            n=2,
         )
+        grab_yaw = self.get_yaw(peg_initial)
         handle_pos = plan_input["peg_initial"].translation()
         ring_center = plan_input["ring_center"]
         offset = handle_pos - ring_center

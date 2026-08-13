@@ -8,3 +8,4 @@ from ogbench.manipspace.envs.objects.cube import CubeObject
 from ogbench.manipspace.envs.objects.peg import PegObject
 from ogbench.manipspace.envs.objects.lid import LidObject
 from ogbench.manipspace.envs.objects.box import BoxObject
+from ogbench.manipspace.envs.objects.slider import SliderObject

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mujoco model="slider">
+    <compiler angle="radian" inertiafromgeom="auto" inertiagrouprange="1 5" />
+
+    <asset>
+        <material name="slider_col" rgba="0.96 0.26 0.33 0.5" shininess="0" specular="0" />
+        <material name="slider_handle" rgba=".9 .9 .9 1" shininess="1" reflectance=".7" specular=".5" />
+        <material name="slider_body" rgba="0.6 0.72 0.94 1" shininess="1" reflectance="1" specular=".5" />
+    </asset>
+
+    <default>
+        <default class="slider_base">
+            <joint armature="0.001" damping="2" frictionloss="2" limited="true" />
+            <geom conaffinity="0" contype="0" group="1" type="box" />
+            <default class="slider_col">
+                <geom conaffinity="1" condim="3" contype="1" group="4" material="slider_col" solimp="0.99 0.99 0.01" solref="0.01 1" />
+            </default>
+            <site type="sphere" size=".01" rgba="0 1 0 1" group="5" />
+        </default>
+    </default>
+
+    <worldbody>
+        <body childclass="slider_base" name="slider_base" pos="0 0 0" euler="0 0 0">
+            <!-- Static rail (slightly longer than the joint range so the carriage stays supported) -->
+            <geom name="slider_rail" material="slider_body" type="box" size="0.12 0.02 0.02" pos="0.1 0 0.00" />
+            <geom name="slider_rail_col" class="slider_col" type="box" size="0.12 0.02 0.02" pos="0.1 0 0.00" />
+
+            <!-- Virtual body holding the target site (moved manually in code) -->
+            <body name="slider_link_virtual" pos="0 0 0">
+                <body name="slider_link_virtual_handle" pos="0 0 0.09">
+                    <site name="slider_handle_center_target" pos="0 0 0.0001" group="5" />
+                </body>
+            </body>
+
+            <!-- Sliding carriage with the graspable handle -->
+            <body name="slider_link" pos="0 0 0">
+                <site name="slider_handle_center" pos="0 0 0.09" group="5" />
+                <joint type="slide" range="0 0.2" axis="1 0 0" name="slider_slide" />
+                <geom material="slider_body" type="box" size="0.04 0.04 0.02" pos="0 0 0.04" />
+                <geom class="slider_col" type="box" size="0.04 0.04 0.02" pos="0 0 0.04" />
+                <geom material="slider_handle" type="box" size="0.01 0.05 0.01" pos="0 0 0.09" />
+                <geom class="slider_col" type="box" size="0.01 0.05 0.01" pos="0 0 0.09" />
+            </body>
+        </body>
+    </worldbody>
+</mujoco>

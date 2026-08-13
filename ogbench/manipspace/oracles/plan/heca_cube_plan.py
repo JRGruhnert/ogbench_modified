@@ -11,12 +11,14 @@ class CubePlanOracle(PlanOracle):
 
     def compute_keyframes(self, plan_input):
         # Pick
-        block_initial = self.equal_yaw(
+        block_initial = self.shortest_yaw(
+            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
             obj_yaw=self.get_yaw(plan_input["block_initial"]),
             translation=plan_input["block_initial"].translation(),
         )
         # Place
-        block_goal = self.equal_yaw(
+        block_goal = self.shortest_yaw(
+            eff_yaw=self.get_yaw(block_initial),
             obj_yaw=self.get_yaw(plan_input["block_goal"]),
             translation=plan_input["block_goal"].translation(),
         )

@@ -14,13 +14,13 @@ class FaucetObject(SceneObject):
 
     DEFAULT_HANDLE_RADIUS = 0.105
 
-    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), lock_rule=None, pos_range=(-1.57, 1.57), handle_radius=0.105):
+    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), locks=None, pos_range=(-1.57, 1.57), handle_radius=0.105):
         super().__init__(id, pos, euler)
         if id > 0:
             self.joint_name = f"{self.joint_name}_{id}"
             self.site_name = f"{self.site_name}_{id}"
             self.target_site_name = f"{self.target_site_name}_{id}"
-        self._lock_rule = lock_rule or {}
+        self._lock_rule = locks or []
         self._target_val = 0.0
         self.pos_range = pos_range
         self.handle_radius = handle_radius
@@ -28,10 +28,18 @@ class FaucetObject(SceneObject):
     def is_closed(self, env):
         return bool(env._data.joint(self.joint_name).qpos[0] <= -0.3)
 
+    def does_lock(self, env, value):
+        """Return True when the faucet's current angle is close to `value`."""
+        angle = env._data.joint(self.joint_name).qpos[0]
+        return bool(np.isclose(angle, value, atol=0.05))
+
     def post_compilation(self, env):
         self._site_id = env._model.site(self.site_name).id
         self._target_site_id = env._model.site(self.target_site_name).id
         self._body_id = env._model.body(self._jname("faucet_link")).id
+
+        # Apply the configured angle limits to the actual joint range.
+        env._model.joint(self.joint_name).range[:] = self.pos_range
 
         if not np.isclose(self.handle_radius, self.DEFAULT_HANDLE_RADIUS):
             ratio = self.handle_radius / self.DEFAULT_HANDLE_RADIUS

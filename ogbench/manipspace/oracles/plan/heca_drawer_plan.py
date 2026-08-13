@@ -10,13 +10,17 @@ class DrawerPlanOracle(PlanOracle):
 
     def compute_keyframes(self, plan_input):
 
-        drawer_initial = self.equal_yaw(
+        drawer_initial = self.shortest_yaw(
+            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
             obj_yaw=self.get_yaw(plan_input["drawer_initial"]),
             translation=plan_input["drawer_initial"].translation(),
+            n=2,
         )
-        drawer_goal = self.equal_yaw(
+        drawer_goal = self.shortest_yaw(
+            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
             obj_yaw=self.get_yaw(plan_input["drawer_initial"]),
             translation=plan_input["drawer_goal"].translation(),
+            n=2,
         )
 
         # Poses

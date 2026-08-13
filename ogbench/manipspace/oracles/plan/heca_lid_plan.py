@@ -9,15 +9,17 @@ class LidPlanOracle(PlanOracle):
         self._object_id = object_id
 
     def compute_keyframes(self, plan_input):
-        grab_yaw = self.get_yaw(plan_input["lid_initial"]) + np.pi / 2
-        place_yaw = self.get_yaw(plan_input["lid_goal"]) + np.pi / 2
-        lid_initial = self.to_pose(
-            pos=plan_input["lid_initial"].translation(),
-            yaw=grab_yaw,
+        lid_initial = self.shortest_yaw(
+            eff_yaw=self.get_yaw(plan_input["effector_initial"]),
+            obj_yaw=self.get_yaw(plan_input["lid_initial"]) + np.pi / 2,
+            translation=plan_input["lid_initial"].translation(),
+            n=2,
         )
-        lid_goal = self.to_pose(
-            pos=plan_input["lid_goal"].translation(),
-            yaw=place_yaw,
+        lid_goal = self.shortest_yaw(
+            eff_yaw=self.get_yaw(lid_initial),
+            obj_yaw=self.get_yaw(plan_input["lid_goal"]) + np.pi / 2,
+            translation=plan_input["lid_goal"].translation(),
+            n=2,
         )
 
         # Poses

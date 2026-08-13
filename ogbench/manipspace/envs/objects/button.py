@@ -7,16 +7,20 @@ class ButtonObject(SceneObject):
     xml_file = "heca_button.xml"
     name = "button"
 
-    def __init__(self, id=0, pos=None, euler=None, num_states=2, lock_rule=None):
+    def __init__(self, id=0, pos=None, euler=(-1.57, 0, 0), num_states=2, locks=None):
         super().__init__(id, pos, euler)
         self._target_button_states = np.array([0])
         self._num_states = num_states
         self._cur_state = np.array([0])
         self._prev_joint_pos = 0.0
-        self._lock_rule = lock_rule or {}
+        self._lock_rule = locks or []
 
     def get_state(self):
         return self._cur_state[0]
+
+    def does_lock(self, env, value):
+        """Return True when the button's current state equals `value`."""
+        return bool(self._cur_state[0] == value)
 
     def post_compilation(self, env):
         self._site_ids = [env._model.site(self._jname("btntop_0")).id]
@@ -48,9 +52,7 @@ class ButtonObject(SceneObject):
 
     def get_info_target(self, env):
         return {
-            f"heca_target_{self.name}_ste": np.array(
-                [self._target_button_states[0]]
-            ),
+            f"heca_target_{self.name}_ste": np.array([self._target_button_states[0]]),
             f"heca_target_{self.name}_pos": env._data.site_xpos[
                 self._site_ids[0]
             ].copy(),

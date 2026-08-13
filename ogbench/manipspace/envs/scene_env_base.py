@@ -14,6 +14,7 @@ class SceneEnvBase(ManipSpaceEnv):
         super().__init__(*args, **kwargs)
         self._arm_sampling_bounds = np.asarray([[0.25, -0.2, 0.20], [0.6, 0.2, 0.35]])
         self._oracle_just_done = False
+        self._task_selection_counts = {}
 
     def set_tasks(self):
         self.task_infos = []
@@ -22,7 +23,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._data.qpos[self._arm_joint_ids] = self._home_qpos
         mujoco.mj_kinematics(self._model, self._data)
 
-        is_collection = self._mode in ("data_collection", "collection")
+        is_collection = self._mode in ("data_collection", "collection", "randomized")
 
         if is_collection:
             self.initialize_arm()
@@ -63,7 +64,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._success = False
 
     def set_new_target(self, return_info=True, p_stack=0.5):
-        assert self._mode in ("data_collection", "collection")
+        assert self._mode in ("data_collection", "collection", "randomized")
         self._oracle_just_done = True
 
         probs = self._get_task_probabilities()
@@ -72,16 +73,33 @@ class SceneEnvBase(ManipSpaceEnv):
             if obj.name in probs:
                 task_list.append(obj.name)
                 prob_list.append(probs[obj.name])
-        if not task_list:
+
+        # Keep only tasks that are currently available (positive probability).
+        available = [(n, w) for n, w in zip(task_list, prob_list) if w > 0]
+        if not available:
             if return_info:
                 return self.compute_observation(), self.get_reset_info()
             return
-        probs = np.array(prob_list, dtype=float)
-        probs /= probs.sum()
-        self._target_task = self.np_random.choice(task_list, p=probs)
+
+        names = [n for n, _ in available]
+        raw = np.array([w for _, w in available], dtype=float)
+
+        # Inverse-frequency balancing: make under-selected tasks more likely while
+        # still respecting each object's availability weight.
+        counts = np.array(
+            [self._task_selection_counts.get(n, 0) for n in names], dtype=float
+        )
+        weights = raw / (counts + 1.0)
+        weights /= weights.sum()
+
+        self._target_task = self.np_random.choice(names, p=weights)
+        self._task_selection_counts[self._target_task] = (
+            self._task_selection_counts.get(self._target_task, 0) + 1
+        )
 
         for obj in self.objects:
             if obj.name == self._target_task:
+                obj.randomize(self)
                 obj.handle_target(self)
                 break
 
@@ -174,7 +192,7 @@ class SceneEnvBase(ManipSpaceEnv):
         for obj in self.objects:
             ob_info.update(obj.get_info(self))
 
-        if self._mode in ("data_collection", "collection"):
+        if self._mode in ("data_collection", "collection", "randomized"):
             ob_info["privileged_target_task"] = self._target_task
             ob_info["oracle_done"] = float(self._oracle_just_done)
             self._oracle_just_done = False

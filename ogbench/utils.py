@@ -244,6 +244,10 @@ def make_env_and_datasets(
             splits[:-2] + splits[-1:]
         )  # Remove the word 'oraclerep'.
         dataset_add_info = True
+    elif "vi" in splits or "gt" in splits:
+        if not dataset_only:
+            env = gymnasium.make(dataset_name, **env_kwargs)
+
     else:
         # Original, goal-conditioned environment.
         env_name = "-".join(splits[:-2] + splits[-1:])  # Remove the dataset type.

@@ -51,7 +51,7 @@ class LidPlanOracle(PlanOracle):
         times["approach2"] = self._dt * (0.8 + distance2 * 4)
         times["place-start"] = self._dt * 1.5
         times["place"] = self._dt
-        times["place-end"] = self._dt
+        times["place-end"] = self._dt * 1.5
         times["final"] = self._dt
 
         # Grasp

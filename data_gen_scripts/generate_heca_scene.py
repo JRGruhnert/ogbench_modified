@@ -208,6 +208,7 @@ def main(_):
             done = False
             step = 0
             free_positions = []  # track free-body positions for health check
+            oracle_start = True  # first step of the first oracle
 
             while not done:
                 if np.random.rand() < FLAGS.p_random_action:
@@ -224,12 +225,23 @@ def main(_):
                 #print(next_ob.keys())
                 done = terminated or truncated
 
+                current_is_start = oracle_start
+                oracle_start = False
+
                 if agent.done:
                     agent_ob, agent_info = env.unwrapped.set_new_target(p_stack=p_stack)
                     agent = agents[agent_info["privileged_target_task"]]
                     agent.reset(agent_ob, agent_info)
                     # This step is the boundary where the previous oracle finished.
                     info["oracle_done"] = 1.0
+                    # The next step will be the first step of the new oracle.
+                    oracle_start = True
+                    # Use the freshly computed (post-randomization) observation as
+                    # the next step's `ob`, so the saved observation also reflects
+                    # the new oracle's start state.
+                    next_ob = agent_ob
+
+                info["oracle_start"] = 1.0 if current_is_start else 0.0
 
                 if isinstance(ob, dict):
                     for ob_key, ob_val in ob.items():

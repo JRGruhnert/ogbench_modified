@@ -161,6 +161,18 @@ def main(_):
         n = len(ep_buf["terminals"])
         for k, rows in ep_buf.items():
             arr = np.array(rows)
+            if arr.dtype.kind in ("U", "S"):
+                # Store string values as variable-length UTF-8.
+                str_arr = np.asarray(rows, dtype=h5py.string_dtype("utf-8"))
+                if k not in datasets:
+                    datasets[k] = save_file.create_dataset(
+                        k, data=str_arr, maxshape=(None,), chunks=True
+                    )
+                else:
+                    ds = datasets[k]
+                    ds.resize(written_steps + n, axis=0)
+                    ds[written_steps : written_steps + n] = str_arr
+                continue
             if k not in datasets:
                 maxshape = (None,) + arr.shape[1:]
                 datasets[k] = save_file.create_dataset(
@@ -216,6 +228,8 @@ def main(_):
                     agent_ob, agent_info = env.unwrapped.set_new_target(p_stack=p_stack)
                     agent = agents[agent_info["privileged_target_task"]]
                     agent.reset(agent_ob, agent_info)
+                    # This step is the boundary where the previous oracle finished.
+                    info["oracle_done"] = 1.0
 
                 if isinstance(ob, dict):
                     for ob_key, ob_val in ob.items():
@@ -228,6 +242,8 @@ def main(_):
                 for k, v in info.items():
                     if isinstance(v, np.ndarray):
                         episode_buffer[k].append(v.ravel())
+                    elif isinstance(v, str):
+                        episode_buffer[k].append(v)
                     elif np.isscalar(v) and not isinstance(v, (str, bytes)):
                         episode_buffer[k].append(np.array([v], dtype=np.float32))
 

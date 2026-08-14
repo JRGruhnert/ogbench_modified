@@ -98,7 +98,7 @@ class CubeObject(SceneObject):
         for c in self._containers:
             if c.contains(env, pos):
                 return c.name
-        return "default"
+        return "base"
 
     def compute_success(self, env):
         obj_pos = env._data.joint(self.joint_name).qpos[:3]

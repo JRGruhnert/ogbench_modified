@@ -75,7 +75,7 @@ class PegObject(SceneObject):
             f"heca_{self.name}_ste": np.array([0]),
             f"heca_{self.name}_ste_min": np.array([0]),
             f"heca_{self.name}_ste_max": np.array([0]),
-            f"heca_{self.name}_loc": "default",
+            f"heca_{self.name}_loc": "base",
         }
 
     def get_info_target(self, env):

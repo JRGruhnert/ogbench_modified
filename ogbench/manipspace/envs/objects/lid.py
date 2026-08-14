@@ -70,6 +70,13 @@ class LidObject(SceneObject):
         tar_pos = env._data.mocap_pos[self._target_mocap_id]
         return (bool(np.linalg.norm(obj_pos - tar_pos) <= 0.04), self.name)
 
+    def _get_location(self, env) -> str:
+        pos = env._data.joint(self.joint_name).qpos[:3]
+        for c in self._containers:
+            if c.contains(env, pos):
+                return c.name
+        return "base"
+
     def get_info(self, env):
         q = env._data.joint(self.joint_name)
         quat = q.qpos[3:].copy()
@@ -83,7 +90,7 @@ class LidObject(SceneObject):
             f"heca_{self.name}_ste": np.array([0]),
             f"heca_{self.name}_ste_min": np.array([0]),
             f"heca_{self.name}_ste_max": np.array([0]),
-            f"heca_{self.name}_loc": "default",
+            f"heca_{self.name}_loc": self._get_location(env),
         }
 
     def get_info_target(self, env):

@@ -19,7 +19,7 @@ class SceneEnv2(SceneEnvBase):
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
         peg_bounds = np.asarray([[0.36, -0.08], [0.42, 0.15]])
         lid_bounds = np.asarray([[0.44, 0.25], [0.54, 0.35]])
-        btn0 = ButtonObject(id=0, pos=(0.24, -0.24, 0.048))
+        btn0 = ButtonObject(id=0, num_states=3, pos=(0.24, -0.24, 0.048))
         btn1 = ButtonObject(id=1, pos=(0.36, -0.26, 0.048))
         faucet0 = FaucetObject(
             id=0,

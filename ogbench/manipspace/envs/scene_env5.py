@@ -20,7 +20,7 @@ class SceneEnv5(SceneEnvBase):
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
         slider0 = SliderObject(id=0, pos=(0.3, 0.1, 0.0))
         btn0 = ButtonObject(id=0, pos=(0.3, 0.3, 0.048), locks=[{"button1": 1}])
-        btn1 = ButtonObject(id=1, pos=(0.41, 0.32, 0.048))
+        btn1 = ButtonObject(id=1, pos=(0.41, 0.32, 0.048), num_states=3)
         btn2 = ButtonObject(id=2, pos=(0.53, 0.28, 0.048), locks=[{"button0": 0}])
         faucet0 = FaucetObject(id=0, pos=(0.56, -0.1, 0.00), euler=(0, 0, -1.57))
         drawer0 = DrawerObject(

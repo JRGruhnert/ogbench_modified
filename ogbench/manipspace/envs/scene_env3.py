@@ -24,8 +24,8 @@ class SceneEnv3(SceneEnvBase):
         shelf0 = ShelfObject(
             id=0, pos=(0.33, -0.34, -0.1), euler=(0, 0, 3.14)
         )  # pos=(0.3, 0.35, -0.04))
-        cube0 = CubeObject(id=0, sampling_bounds=bounds, containers=[shelf0])
         drawer0 = DrawerObject(id=0, pos=(0.3, 0.4, 0.084), locks=[{"button0": 1}])
+        cube0 = CubeObject(id=0, sampling_bounds=bounds, containers=[shelf0, drawer0])
         objects = [shelf0, cube0, btn0, btn1, btn2, drawer0]
         super().__init__(
             env_type, objects, permute_blocks=permute_blocks, *args, **kwargs

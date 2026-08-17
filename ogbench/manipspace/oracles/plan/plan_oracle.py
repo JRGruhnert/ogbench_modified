@@ -32,7 +32,7 @@ class PlanOracle:
         self._t_max = None
         self._plan = None
 
-    def hold_after(self, times, poses, grasps, checkpoints, duration=0.5):
+    def hold_after(self, times, poses, grasps, checkpoints, duration=1.0):
         new_times, new_poses, new_grasps = {}, {}, {}
         additional = 0.0
         for key in times:

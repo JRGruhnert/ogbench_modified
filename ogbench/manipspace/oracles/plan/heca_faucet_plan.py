@@ -15,14 +15,19 @@ class FaucetPlanOracle(PlanOracle):
         body_xmat,
         init_angle,
         goal_angle,
-        n_arc=6,
         push_offset=0.08,
         radius=0.105,
+        step_angle=0.3,
     ):
-        """Arc poses in the body's local frame (handle at [0, -radius, 0])."""
+        """Arc poses in the body's local frame (handle at [0, -radius, 0]).
+
+        The number of arc poses scales with the angular sweep so the chord
+        approximation stays accurate regardless of how far the knob must turn.
+        """
         handle_z = faucet_initial.translation()[2]
         base_yaw = self.get_yaw(faucet_initial)
         local_handle = np.array([0.0, -radius, 0.0])  # fixed in body frame
+        n_arc = max(2, int(np.ceil(abs(goal_angle - init_angle) / step_angle)))
         arc_angles = np.linspace(init_angle, goal_angle, n_arc)
         arc_poses = []
         for angle in arc_angles:
@@ -49,11 +54,19 @@ class FaucetPlanOracle(PlanOracle):
             yaw=base_yaw,
         )
 
-        return arc_poses, approach_pose
+        # EE position at the goal: handle at goal angle, still offset tangentially.
+        goal_handle_xy = arc_poses[-1].translation()[:2]
+        goal_ee_xy = goal_handle_xy + world_dir[:2] * push_offset
+        goal_ee_pose = self.to_pose(
+            pos=np.array([goal_ee_xy[0], goal_ee_xy[1], handle_z]),
+            yaw=base_yaw,
+        )
+
+        return arc_poses, approach_pose, goal_ee_pose
 
     def compute_keyframes(self, plan_input):
 
-        arc_poses, approach_pose = self._arc_poses(
+        arc_poses, approach_pose, goal_ee_pose = self._arc_poses(
             plan_input["faucet_initial"],
             plan_input["faucet_center"],
             plan_input["body_xmat"],
@@ -69,7 +82,7 @@ class FaucetPlanOracle(PlanOracle):
         poses["down"] = approach_pose
         for i, p in enumerate(arc_poses):
             poses[f"arc_{i}"] = p
-        poses["lift"] = self.above(arc_poses[-1], 0.10)
+        poses["lift"] = self.above(goal_ee_pose, 0.10)
         poses["final"] = plan_input["effector_goal"]
 
         # Times

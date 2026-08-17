@@ -12,7 +12,7 @@ ENVS=(
     gt-scene5
 )
 
-NUM_EPISODES=200
+NUM_EPISODES=250
 DATASET_TYPE=play
 
 for env_name in "${ENVS[@]}"; do

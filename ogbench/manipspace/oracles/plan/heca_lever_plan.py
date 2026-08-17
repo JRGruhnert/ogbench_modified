@@ -15,20 +15,22 @@ class LeverPlanOracle(PlanOracle):
         body_xmat,
         init_angle,
         goal_angle,
-        n_arc=6,
         radius=0.12,
+        step_angle=0.3,
     ):
         """Compute arc poses for the lever handle moving in a vertical arc.
 
         The lever rotates around the X axis (hinge axis), so the handle moves
         in the YZ plane. Uses the body's rotation matrix and relative angles
-        for robustness to arbitrary base orientations.
+        for robustness to arbitrary base orientations. The number of arc poses
+        scales with the angular sweep to keep the chord approximation accurate.
 
         Returns (arc_poses, approach_pose).
         """
         base_yaw = self.get_yaw(lever_initial)
         local_handle = np.array([0.0, -radius, 0.0])  # fixed in body frame
 
+        n_arc = max(2, int(np.ceil(abs(goal_angle - init_angle) / step_angle)))
         arc_angles = np.linspace(init_angle, goal_angle, n_arc)
         arc_poses = []
         for angle in arc_angles:

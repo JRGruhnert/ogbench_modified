@@ -30,14 +30,14 @@ flags.DEFINE_integer("seed", 0, "Random seed.")
 flags.DEFINE_string("env_name", "cube-single-v0", "Environment name.")
 flags.DEFINE_string("dataset_type", "play", "Dataset type.")
 flags.DEFINE_string("save_path", None, "Save path.")
-flags.DEFINE_float("noise", 0.05, "Action noise level.")
+flags.DEFINE_float("noise", 0.01, "Action noise level.")
 flags.DEFINE_float(
     "noise_smoothing", 0.5, "Action noise smoothing level for PlanOracle."
 )
 flags.DEFINE_float("min_norm", 0.4, "Minimum action norm for MarkovOracle.")
 flags.DEFINE_float("p_random_action", 0, "Probability of selecting a random action.")
-flags.DEFINE_integer("num_episodes", 200, "Number of episodes.")
-flags.DEFINE_integer("max_episode_steps", 1001, "Number of episodes.")
+flags.DEFINE_integer("num_episodes", 250, "Number of episodes.")
+flags.DEFINE_integer("max_episode_steps", 1201, "Number of episodes.")
 flags.DEFINE_integer("image_size", 256, "Image size for observations.")
 flags.DEFINE_bool("dry_run", False, "Run data collection without saving to file.")
 flags.DEFINE_float(

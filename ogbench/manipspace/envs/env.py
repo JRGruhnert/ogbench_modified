@@ -218,6 +218,44 @@ class CustomMuJoCoEnv(gym.Env, abc.ABC):
             self._data.act[:] = None
         mujoco.mj_forward(self._model, self._data)
 
+    def _index_to_joint_name(self, idx: int, adr, n_total: int) -> str:
+        """Map a qpos/dof index to its joint name."""
+        for j in range(self._model.njnt):
+            start = adr[j]
+            end = adr[j + 1] if j + 1 < self._model.njnt else n_total
+            if start <= idx < end:
+                name = mujoco.mj_id2name(
+                    self._model, mujoco.mjtObj.mjOBJ_JOINT, j
+                )
+                return name or f"joint_{j}"
+        return f"index_{idx}"
+
+    def _find_nonfinite(self):
+        """Return a diagnostic string if the simulation state is non-finite."""
+        d = self._data
+        m = self._model
+        for name, arr, adr, n in (
+            ("qpos", d.qpos, m.jnt_qposadr, m.nq),
+            ("qvel", d.qvel, m.jnt_dofadr, m.nv),
+            ("qacc", d.qacc, m.jnt_dofadr, m.nv),
+        ):
+            bad = ~np.isfinite(arr)
+            if not bad.any():
+                continue
+            idx = int(np.argmax(bad))
+            joint = self._index_to_joint_name(idx, adr, n)
+            lines = [f"[INSTABILITY] non-finite {name}[{idx}] ({joint})"]
+            lines.append(f"  arm qpos = {np.array2string(d.qpos[:6], precision=3)}")
+            if hasattr(self, "_pinch_site_id"):
+                lines.append(
+                    f"  effector = {np.array2string(d.site_xpos[self._pinch_site_id], precision=3)}"
+                )
+            cfrc = d.cfrc_ext
+            if cfrc is not None and cfrc.size:
+                lines.append(f"  max |cfrc_ext| = {np.abs(cfrc).max():.3f}")
+            return "\n".join(lines)
+        return None
+
     def step(self, action):
         """Step the environment forward by one timestep.
 
@@ -234,9 +272,16 @@ class CustomMuJoCoEnv(gym.Env, abc.ABC):
         self.pre_step()
         mujoco.mj_step(self._model, self._data, nstep=self._n_steps)
         mujoco.mj_rnePostConstraint(self._model, self._data)  # Compute contact forces.
+
+        # Detect and log simulation divergence (NaN/Inf) so unstable episodes
+        # can be discarded instead of polluting the dataset.
+        unstable = self._find_nonfinite()
+        if unstable is not None:
+            print(unstable, flush=True)
+
         self.post_step()
         terminated = self.terminate_episode()
-        truncated = self.truncate_episode()
+        truncated = self.truncate_episode() or (unstable is not None)
         ob = self.compute_observation()
         reward = self.compute_reward()
         info = self.get_step_info()

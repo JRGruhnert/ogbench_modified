@@ -17,7 +17,7 @@ class FaucetPlanOracle(PlanOracle):
         goal_angle,
         push_offset=0.08,
         radius=0.105,
-        step_angle=0.3,
+        step_angle=0.15,
     ):
         """Arc poses in the body's local frame (handle at [0, -radius, 0]).
 
@@ -46,27 +46,29 @@ class FaucetPlanOracle(PlanOracle):
             local_dir = np.array([-1.0, 0.0, 0.0])  # approach from -x (CW side)
         else:
             local_dir = np.array([1.0, 0.0, 0.0])   # approach from +x (CCW side)
-        world_dir = body_xmat @ local_dir
-        world_handle = body_xmat @ local_handle
-        approach_xy = center[:2] + world_handle[:2] + world_dir[:2] * push_offset
+        # Offset the end effector tangentially by rotating the handle point
+        # around the knob center, so it stays on the handle's circle (radius)
+        # instead of drifting outward.
+        phi = push_offset / radius
+        angle = local_dir[0] * phi  # local_dir[0] is +1 or -1
+        rot_phi = np.array([[np.cos(angle), -np.sin(angle), 0],
+                            [np.sin(angle),  np.cos(angle), 0],
+                            [0, 0, 1]])
+        approach_local = rot_phi @ local_handle
+        approach_world = body_xmat @ approach_local
+        approach_xy = center[:2] + approach_world[:2]
         approach_pose = self.to_pose(
             pos=np.array([approach_xy[0], approach_xy[1], handle_z]),
             yaw=base_yaw,
         )
 
-        # EE position at the goal: handle at goal angle, still offset tangentially.
-        goal_handle_xy = arc_poses[-1].translation()[:2]
-        goal_ee_xy = goal_handle_xy + world_dir[:2] * push_offset
-        goal_ee_pose = self.to_pose(
-            pos=np.array([goal_ee_xy[0], goal_ee_xy[1], handle_z]),
-            yaw=base_yaw,
-        )
-
-        return arc_poses, approach_pose, goal_ee_pose
+        # The goal EE pose is just the last arc pose (handle at the goal angle);
+        # `compute_keyframes` lifts straight up from it.
+        return arc_poses, approach_pose
 
     def compute_keyframes(self, plan_input):
 
-        arc_poses, approach_pose, goal_ee_pose = self._arc_poses(
+        arc_poses, approach_pose = self._arc_poses(
             plan_input["faucet_initial"],
             plan_input["faucet_center"],
             plan_input["body_xmat"],
@@ -82,7 +84,7 @@ class FaucetPlanOracle(PlanOracle):
         poses["down"] = approach_pose
         for i, p in enumerate(arc_poses):
             poses[f"arc_{i}"] = p
-        poses["lift"] = self.above(goal_ee_pose, 0.10)
+        poses["lift"] = self.above(poses[f"arc_{len(arc_poses) -1}"], 0.10)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
@@ -91,10 +93,10 @@ class FaucetPlanOracle(PlanOracle):
         )
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt * (0.5 + distance * 4)
+        times["approach"] = self._dt * (0.8 + distance * 4)
         times["down"] = self._dt * 0.5
         for i in range(len(arc_poses)):
-            times[f"arc_{i}"] = self._dt * 0.6
+            times[f"arc_{i}"] = self._dt * 0.4
         times["lift"] = self._dt * 0.5
         times["final"] = self._dt
 

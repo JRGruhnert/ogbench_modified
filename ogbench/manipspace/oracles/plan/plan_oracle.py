@@ -53,7 +53,7 @@ class PlanOracle:
         poses,
         grasps,
         checkpoints,
-        duration=0.5,
+        duration=1.0,
         jitter=True,
         jitter_factor=0.1,
     ):

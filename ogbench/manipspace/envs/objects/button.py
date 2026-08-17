@@ -7,6 +7,10 @@ class ButtonObject(SceneObject):
     xml_file = "heca_button.xml"
     name = "button"
 
+    # Distinct color for each discrete state (cycled if num_states exceeds
+    # this list). State 0/1 keep the original red/white for compatibility.
+    STATE_COLORS = ("red", "white", "blue", "green", "orange", "purple")
+
     def __init__(self, id=0, pos=None, euler=(-1.57, 0, 0), num_states=2, locks=None):
         super().__init__(id, pos, euler)
         self._target_button_states = np.array([0])
@@ -75,10 +79,9 @@ class ButtonObject(SceneObject):
         return 1.0
 
     def apply_colors_and_locks(self, env):
+        color = COLORS[self.STATE_COLORS[self._cur_state[0] % len(self.STATE_COLORS)]]
         for gid in self._geom_ids[0]:
-            env._model.geom(gid).rgba = COLORS[
-                "red" if self._cur_state[0] == 0 else "white"
-            ]
+            env._model.geom(gid).rgba = color
         if self._is_locked(env):
             env._model.joint(self._jname("buttonbox_joint_0")).damping[0] = 1e6
         else:

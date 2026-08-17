@@ -14,10 +14,9 @@ class DrawerObject(SceneObject):
     tolerance = 0.04
 
     def __init__(
-        self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), drawer_center=None, locks=None
+        self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), locks=None
     ):
         super().__init__(id, pos, euler)
-        self.drawer_center = drawer_center or np.array([0.33, -0.24, 0.066])
         self._lock_rule = locks or []
         self._target_val = 0.0
         if id > 0:
@@ -36,6 +35,7 @@ class DrawerObject(SceneObject):
     def post_compilation(self, env):
         self._site_id = env._model.site(self.site_name).id
         self._target_site_id = env._model.site(self.target_site_name).id
+        self._goal_site_id = env._model.site(self._jname("drawer_goal")).id
 
     def randomize(self, env):
         lo, hi = self.pos_range
@@ -116,11 +116,19 @@ class DrawerObject(SceneObject):
             env._model.joint(self.joint_name).damping[0] = 2.0
 
     def contains(self, env, obj_pos):
-        """Check if a 3D point is inside the drawer."""
-        drawer_pos_y = env._data.site_xpos[self._site_id][1]
-        low = np.array([0.21, drawer_pos_y - 0.27, 0.0])
-        high = np.array([0.45, drawer_pos_y - 0.07, 0.15])
-        return np.all(low <= obj_pos) and np.all(obj_pos <= high)
+        """Check if a 3D point is inside the drawer bin.
+
+        The check is expressed in the frame of the `drawer_goal` site, so it
+        follows the drawer's position/orientation and its open/closed state.
+        """
+        xpos = env._data.site_xpos[self._goal_site_id]
+        xmat = env._data.site_xmat[self._goal_site_id].reshape(3, 3)
+        local = xmat.T @ (obj_pos - xpos)
+        return (
+            abs(local[0]) < 0.09
+            and abs(local[1]) < 0.08
+            and -0.02 < local[2] < 0.084
+        )
 
     def is_open(self, env):
         """Drawer is open enough to place a block inside."""
@@ -128,7 +136,7 @@ class DrawerObject(SceneObject):
 
     def get_placement_pos(self, env):
         """Target position for placing a block inside the drawer."""
-        p = self.drawer_center.copy()
+        p = env._data.site_xpos[self._goal_site_id].copy()
         p[:2] += env.np_random.uniform(-0.005, 0.005, size=2)
         return p
 

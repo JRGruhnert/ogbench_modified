@@ -20,23 +20,30 @@ class BoxObject(SceneObject):
 
     def post_compilation(self, env):
         self._body_id = env._model.body(self._jname("box")).id
+        self._goal_site_id = env._model.site(self._jname("box_goal")).id
 
     def get_task_probability(self, env):
         return None  # passive container, not a target
 
     def _surface_pos(self, env):
-        """Top surface center of the box bin (for placement)."""
+        """Top surface center of the box bin (used for lid placement/covers)."""
         p = env._data.xpos[self._body_id].copy()
         p[2] += 0.06  # bin rim height (50% deeper)
         return p
 
     def contains(self, env, obj_pos):
-        """Check if a 3D point is inside the box bin."""
-        p = self._surface_pos(env)
+        """Check if a 3D point is inside the box bin.
+
+        The check is expressed in the frame of the `box_goal` site, so it
+        follows the box's position/orientation.
+        """
+        xpos = env._data.site_xpos[self._goal_site_id]
+        xmat = env._data.site_xmat[self._goal_site_id].reshape(3, 3)
+        local = xmat.T @ (obj_pos - xpos)
         return (
-            abs(obj_pos[0] - p[0]) < 0.06
-            and abs(obj_pos[1] - p[1]) < 0.06
-            and obj_pos[2] > p[2] - 0.01
+            abs(local[0]) < 0.06
+            and abs(local[1]) < 0.06
+            and -0.02 < local[2] < 0.04
         )
 
     def is_open(self, env):
@@ -56,7 +63,7 @@ class BoxObject(SceneObject):
 
     def get_placement_pos(self, env):
         """Target position for placing a block inside the box."""
-        p = self._surface_pos(env)
+        p = env._data.site_xpos[self._goal_site_id].copy()
         p[:2] += env.np_random.uniform(-0.005, 0.005, size=2)
         return p
 

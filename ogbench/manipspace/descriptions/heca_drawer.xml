@@ -44,6 +44,7 @@
             </body>
             <body name="drawer_link" pos="0 -0.01 0.006">
                 <site name="drawer_handle_center" pos="0 -0.17 -0.01" group="5" />
+                <site name="drawer_goal" pos="0 0 -0.024" size="0.02" rgba="0 0.8 0 1" group="5" />
                 <joint type="slide" range="-0.16 0" axis="0 1 0" name="drawer_slide" pos="0 0 0" damping="2" />
                 <geom material="drawer_body" mesh="drawer" />
                 <geom material="drawer_handle" mesh="drawerhandle" pos="0 -0.114 0" name="drawer_handle" />

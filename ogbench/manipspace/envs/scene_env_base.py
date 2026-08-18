@@ -15,6 +15,9 @@ class SceneEnvBase(ManipSpaceEnv):
         self._arm_sampling_bounds = np.asarray([[0.25, -0.2, 0.20], [0.6, 0.2, 0.35]])
         self._oracle_just_done = False
         self._task_selection_counts = {}
+        self._cur_goal_ob = None
+        self._cur_goal_rendered = None
+        self._render_goal = False
 
     def set_tasks(self):
         self.task_infos = []
@@ -46,7 +49,7 @@ class SceneEnvBase(ManipSpaceEnv):
             self._cur_goal_ob = (
                 self.compute_oracle_observation()
                 if self._use_oracle_rep
-                else self.compute_ob_info()
+                else self.compute_observation()
             )
             self._cur_goal_rendered = (
                 self.get_pixel_observation() if self._render_goal else None
@@ -104,8 +107,65 @@ class SceneEnvBase(ManipSpaceEnv):
                 break
 
         mujoco.mj_kinematics(self._model, self._data)
+
+        # Compute the goal observation (target state) for goal-conditioned data.
+        self._cur_goal_ob = self._compute_goal_observation()
+        self._cur_goal_rendered = (
+            self.get_pixel_observation() if self._render_goal else None
+        )
+
         if return_info:
             return self.compute_observation(), self.get_reset_info()
+
+    def _set_target_object_to_target(self):
+        """Move the target object to its current target state."""
+        for obj in self.objects:
+            if obj.name != self._target_task:
+                continue
+            if hasattr(obj, "_target_mocap_id"):
+                pos = self._data.mocap_pos[obj._target_mocap_id].copy()
+                quat = self._data.mocap_quat[obj._target_mocap_id].copy()
+                self._data.joint(obj.joint_name).qpos[:3] = pos
+                self._data.joint(obj.joint_name).qpos[3:] = quat
+            elif hasattr(obj, "_target_val"):
+                self._data.joint(obj.joint_name).qpos[0] = obj._target_val
+            elif hasattr(obj, "_target_button_states"):
+                obj._cur_state[0] = obj._target_button_states[0]
+            break
+
+    def _compute_goal_observation(self):
+        """Compute the observation of the target state (used as the goal)."""
+        saved_qpos = self._data.qpos.copy()
+        saved_qvel = self._data.qvel.copy()
+        saved_oracle_just_done = self._oracle_just_done
+
+        # Some objects store discrete state outside of qpos/qvel (e.g. buttons
+        # track `_cur_state`). Save and restore it so computing the goal does
+        # not corrupt the current episode state.
+        saved_cur_states = {}
+        for obj in self.objects:
+            if hasattr(obj, "_cur_state"):
+                saved_cur_states[obj.name] = obj._cur_state.copy()
+
+        self._set_target_object_to_target()
+        self._apply_button_states()
+
+        goal_ob = (
+            self.compute_oracle_observation()
+            if self._use_oracle_rep
+            else self.compute_observation()
+        )
+
+        self._data.qpos[:] = saved_qpos
+        self._data.qvel[:] = saved_qvel
+        for obj in self.objects:
+            if obj.name in saved_cur_states:
+                obj._cur_state[:] = saved_cur_states[obj.name]
+        self._oracle_just_done = saved_oracle_just_done
+
+        # Restore colors/locks to match the restored current state.
+        self._apply_button_states()
+        return goal_ob
 
     def _get_task_probabilities(self):
         probs = {}
@@ -212,13 +272,62 @@ class SceneEnvBase(ManipSpaceEnv):
             ob_info["meta_gripper_scaler"] = np.array([3.0])
             ob_info["meta_prismatic_max"] = np.array([3.0])
 
+    def get_reset_info(self):
+        reset_info = super().get_reset_info()
+        if self._mode in ("data_collection", "collection", "randomized"):
+            reset_info["goal"] = self._cur_goal_ob
+            if self._render_goal and self._cur_goal_rendered is not None:
+                reset_info["goal_rendered"] = self._cur_goal_rendered
+        return reset_info
+
+    def get_step_info(self):
+        ob_info = super().get_step_info()
+        if self._mode in ("data_collection", "collection", "randomized"):
+            ob_info["goal"] = self._cur_goal_ob
+        return ob_info
+
+    def _append_object_state(self, ob: list):
+        """Append each object's goal-relevant state to the observation list."""
+        for obj in self.objects:
+            if hasattr(obj, "_target_mocap_id"):
+                # Free body: position (3D).
+                ob.append(self._data.joint(obj.joint_name).qpos[:3].copy())
+            elif hasattr(obj, "_target_val"):
+                # Articulated joint: joint value (1D).
+                ob.append(
+                    np.array([self._data.joint(obj.joint_name).qpos[0]])
+                )
+            elif hasattr(obj, "_target_button_states"):
+                # Button: discrete state (1D).
+                ob.append(np.array([obj._cur_state[0]], dtype=np.float64))
+            # Passive containers (shelf/box) contribute no state.
+
     def compute_observation(self):
         if self._ob_type == "pixels":
             return self.get_pixel_observation()
-        return np.zeros(1)
+
+        xyz_center = np.array([0.425, 0.0, 0.0])
+        xyz_scaler = 10.0
+        gripper_scaler = 3.0
+
+        ob_info = self.compute_ob_info()
+        ob = [
+            ob_info["proprio_joint_pos"],
+            ob_info["proprio_joint_vel"],
+            (ob_info["proprio_effector_pos"] - xyz_center) * xyz_scaler,
+            np.cos(ob_info["proprio_effector_yaw"]),
+            np.sin(ob_info["proprio_effector_yaw"]),
+            ob_info["proprio_gripper_opening"] * gripper_scaler,
+            ob_info["proprio_gripper_contact"],
+        ]
+        self._append_object_state(ob)
+        return np.concatenate(ob)
 
     def compute_oracle_observation(self):
-        return np.zeros(1)
+        """Return the oracle goal representation of the current state."""
+        ob = []
+        self._append_object_state(ob)
+        return np.concatenate(ob)
 
     def compute_reward(self):
         successes = [val for val, _ in self._compute_successes()]

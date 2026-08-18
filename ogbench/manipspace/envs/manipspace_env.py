@@ -420,6 +420,12 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
         mujoco.mj_step(self._model, self._data, nstep=self._n_steps)
         mujoco.mj_rnePostConstraint(self._model, self._data)  # Compute contact forces.
 
+        # Detect and log simulation divergence (NaN/Inf) so unstable episodes
+        # can be discarded instead of polluting the dataset.
+        unstable = self._find_nonfinite()
+        if unstable is not None:
+            print(unstable, flush=True)
+
         self.post_step()
 
         if self._success_timing == "post":
@@ -427,7 +433,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             terminated = self.terminate_episode()
             reward = self.compute_reward()
 
-        truncated = self.truncate_episode()
+        truncated = self.truncate_episode() or (unstable is not None)
         ob = self.compute_observation()
         info = self.get_step_info()
 
@@ -565,8 +571,8 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
 
         self.add_object_info(ob_info)
 
-        ob_info["prev_qpos"] = self._prev_qpos.copy()
-        ob_info["prev_qvel"] = self._prev_qvel.copy()
+        ob_info["prev_qpos"] = getattr(self, "_prev_qpos", self._data.qpos).copy()
+        ob_info["prev_qvel"] = getattr(self, "_prev_qvel", self._data.qvel).copy()
         ob_info["qpos"] = self._data.qpos.copy()
         ob_info["qvel"] = self._data.qvel.copy()
         ob_info["control"] = self._data.ctrl.copy()

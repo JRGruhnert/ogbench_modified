@@ -49,7 +49,7 @@ class SceneEnvBase(ManipSpaceEnv):
             self._cur_goal_ob = (
                 self.compute_oracle_observation()
                 if self._use_oracle_rep
-                else self.compute_observation()
+                else self.compute_ob_info()
             )
             self._cur_goal_rendered = (
                 self.get_pixel_observation() if self._render_goal else None
@@ -153,7 +153,7 @@ class SceneEnvBase(ManipSpaceEnv):
         goal_ob = (
             self.compute_oracle_observation()
             if self._use_oracle_rep
-            else self.compute_observation()
+            else self.compute_ob_info()
         )
 
         self._data.qpos[:] = saved_qpos

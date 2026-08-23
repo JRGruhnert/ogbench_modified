@@ -428,9 +428,9 @@ class SceneEnvBase(ManipSpaceEnv):
     def step_scene(
         self,
         info_dict,
-        terminate=0.3,
-        skip=0.1,
-        random=0.6,
+        terminate=0.4,
+        skip=0.4,
+        random=0.2,
         noise_scale=0.2,
     ):
         mode_probs = np.array([terminate, skip, random], dtype=float)

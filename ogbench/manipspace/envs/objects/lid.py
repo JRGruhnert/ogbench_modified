@@ -8,6 +8,10 @@ class LidObject(SceneObject):
     xml_file = "heca_box_lid.xml"
     name = "lid"
 
+    # Local offset from the free body origin (base) to the handle site. Used to
+    # recover the base position from `heca_lid0_pos` (which is the handle site).
+    handle_offset = np.array([0.0, 0.0, 0.0492])
+
     def __init__(
         self, id=0, pos=None, euler=None, sampling_bounds=None, containers=None
     ):

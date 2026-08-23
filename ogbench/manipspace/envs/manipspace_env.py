@@ -413,7 +413,7 @@ class ManipSpaceEnv(CustomMuJoCoEnv):
             d_yaw = t_yaw - self._prev_ob_info["proprio_effector_yaw"].item()
             d_gripper = t_gripper - self._prev_ob_info["proprio_gripper_opening"]
 
-            action = np.concatenate([d_pos, [d_yaw], [d_gripper]])
+            action = np.concatenate([d_pos, [d_yaw], d_gripper])
 
         self.set_control(action, unnormalize)
 

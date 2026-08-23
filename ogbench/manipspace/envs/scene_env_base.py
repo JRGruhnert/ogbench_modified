@@ -294,9 +294,7 @@ class SceneEnvBase(ManipSpaceEnv):
                 ob.append(self._data.joint(obj.joint_name).qpos[:3].copy())
             elif hasattr(obj, "_target_val"):
                 # Articulated joint: joint value (1D).
-                ob.append(
-                    np.array([self._data.joint(obj.joint_name).qpos[0]])
-                )
+                ob.append(np.array([self._data.joint(obj.joint_name).qpos[0]]))
             elif hasattr(obj, "_target_button_states"):
                 # Button: discrete state (1D).
                 ob.append(np.array([obj._cur_state[0]], dtype=np.float64))
@@ -362,3 +360,156 @@ class SceneEnvBase(ManipSpaceEnv):
 
         self._apply_button_states()
         return True
+
+    def _object_state_from_info(self, obj, info_dict):
+        """Parse a settable value for `obj` from a step/reset info dict.
+
+        Returns the value expected by `obj.set_state(self, value)`, or `None` if
+        the dict has no settable key for this object.
+        """
+        if hasattr(obj, "_target_button_states"):
+            key = f"heca_{obj.name}_ste"
+            if key in info_dict:
+                return int(round(float(np.asarray(info_dict[key]).ravel()[0])))
+            return None
+
+        if hasattr(obj, "_target_val"):
+            for suffix in ("_ang", "_sca"):
+                key = f"heca_{obj.name}{suffix}"
+                if key in info_dict:
+                    return float(np.asarray(info_dict[key]).ravel()[0])
+            return None
+
+        if hasattr(obj, "_target_mocap_id"):
+            base_key = f"heca_{obj.name}_pos_base"
+            pos_key = f"heca_{obj.name}_pos"
+            if base_key in info_dict:
+                pos = np.asarray(info_dict[base_key], dtype=float).ravel()
+            elif pos_key in info_dict:
+                pos = np.asarray(info_dict[pos_key], dtype=float).ravel()
+                # Some free bodies only expose the handle site as `_pos` (e.g.
+                # the lid). Recover the base by removing the fixed local offset.
+                handle_offset = getattr(obj, "handle_offset", None)
+                if handle_offset is not None:
+                    pos = pos - np.asarray(handle_offset, dtype=float)
+            else:
+                return None
+            rot_key = f"heca_{obj.name}_rot"
+            yaw_key = f"heca_{obj.name}_yaw"
+            if rot_key in info_dict:
+                quat = np.asarray(info_dict[rot_key], dtype=float).ravel()
+            elif yaw_key in info_dict:
+                quat = lie.SO3.from_z_radians(
+                    float(np.asarray(info_dict[yaw_key]).ravel()[0])
+                ).wxyz
+            else:
+                quat = lie.SO3.identity().wxyz
+            return (pos, quat)
+
+        return None
+
+    def _noisy_value(self, obj, value, noise_scale):
+        """Return `value` perturbed by Gaussian noise (used in `random` mode)."""
+        if noise_scale <= 0.0:
+            return value
+
+        # Free body: value is (pos, quat).
+        if isinstance(value, tuple):
+            pos, quat = value
+            pos = np.asarray(pos, dtype=float) + self.np_random.normal(
+                0.0, noise_scale, size=3
+            )
+            return (pos, quat)
+
+        # Discrete button state: no continuous noise.
+        if isinstance(value, (int, np.integer)):
+            return value
+
+        # Continuous joint value: clip to the object's valid range.
+        val = float(value) + self.np_random.normal(0.0, noise_scale)
+        pos_range = getattr(obj, "pos_range", None)
+        if pos_range is not None:
+            val = float(np.clip(val, pos_range[0], pos_range[1]))
+        return val
+
+    def step_scene(self, info_dict, failure_mode="skip", noise_scale=0.0):
+        """Teleport-based step: update entities from an info dict instead of an action.
+
+        Args:
+            info_dict: dict of desired entity states, using the same keys as
+                `step()`/`reset()` info (e.g. `heca_faucet0_ang`,
+                `heca_button0_ste`, `heca_cube0_pos`, ...).
+            failure_mode: how to handle objects that cannot be set because they
+                are locked:
+                - "terminate": if any requested object is locked, terminate the
+                  episode (return `terminated=True`) and apply no updates.
+                - "skip": if any requested object is locked, apply no updates at
+                  all (whole-scene no-op).
+                - "random": locked objects are set to a noisy version of the
+                  requested value (`value + Gaussian(0, noise_scale)`); unlocked
+                  objects are set exactly.
+            noise_scale: standard deviation of the Gaussian noise used in
+                "random" mode.
+
+        Returns:
+            (ob, reward, terminated, truncated, info), matching `step()`.
+        """
+        self.pre_step()
+
+        # Parse requested updates and detect locked objects.
+        targets = {}
+        for obj in self.objects:
+            value = self._object_state_from_info(obj, info_dict)
+            if value is not None:
+                targets[obj.name] = (obj, value)
+
+        locked = {
+            name
+            for name, (obj, value) in targets.items()
+            if not obj.can_set_state(self, value)
+        }
+
+        if failure_mode == "terminate":
+            if locked:
+                self._success = False
+                ob = self.compute_observation()
+                info = self.get_step_info()
+                info["success"] = False
+                return ob, self.compute_reward(), True, False, info
+        elif failure_mode == "skip":
+            if locked:
+                ob = self.compute_observation()
+                info = self.get_step_info()
+                info["success"] = bool(self._success)
+                return (
+                    ob,
+                    self.compute_reward(),
+                    self.terminate_episode(),
+                    self.truncate_episode(),
+                    info,
+                )
+        elif failure_mode != "random":
+            raise ValueError(
+                f"Unknown failure_mode {failure_mode!r}; expected one of 'terminate', 'skip', 'random'."
+            )
+
+        # Apply the updates.
+        for name, (obj, value) in targets.items():
+            if failure_mode == "random" and name in locked:
+                value = self._noisy_value(obj, value, noise_scale)
+            obj.set_state(self, value)
+
+            joint_name = getattr(obj, "joint_name", None)
+            if joint_name is not None:
+                self._data.joint(joint_name).qvel[:] = 0.0
+
+        self._apply_button_states()
+        self._success = all(val for val, _ in self._compute_successes())
+
+        ob = self.compute_observation()
+        info = self.get_step_info()
+        info["success"] = bool(self._success)
+        reward = self.compute_reward()
+        terminated = self.terminate_episode()
+        truncated = self.truncate_episode()
+        return ob, reward, terminated, truncated, info

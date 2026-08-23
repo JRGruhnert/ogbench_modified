@@ -329,7 +329,7 @@ class SceneEnvBase(ManipSpaceEnv):
 
     def compute_reward(self):
         successes = [val for val, _ in self._compute_successes()]
-        return float(sum(successes) - len(successes))
+        return float(all(successes))
 
     def set_scene_state(self, state_dict: dict):
         """Teleport the scene to a given state. Respects lock rules — if any object

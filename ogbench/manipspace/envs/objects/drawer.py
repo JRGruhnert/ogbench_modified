@@ -96,7 +96,10 @@ class DrawerObject(SceneObject):
     def handle_target(self, env):
         lo, hi = self.pos_range
         self._target_val = lo if self.is_closed(env) else hi
-        env._model.site(self.target_site_name).pos[1] = self._target_val
+        self._set_site(env, self._target_val)
+
+    def _set_site(self, env, val):
+        env._model.site(self.target_site_name).pos[1] = val
 
     def set_state(self, env, value):
         env._data.joint(self.joint_name).qpos[0] = value

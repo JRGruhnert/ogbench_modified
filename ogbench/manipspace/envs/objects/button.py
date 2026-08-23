@@ -22,8 +22,14 @@ class ButtonObject(SceneObject):
     def get_state(self):
         return self._cur_state[0]
 
+    def can_set_state(self, env, value):
+        if self._is_locked(env):
+            return False
+        cur = int(self._cur_state[0])
+        value = int(value)
+        return value == cur or value == (cur + 1) % self._num_states
+
     def does_lock(self, env, value):
-        """Return True when the button's current state equals `value`."""
         return bool(self._cur_state[0] == value)
 
     def post_compilation(self, env):

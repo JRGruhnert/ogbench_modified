@@ -332,18 +332,6 @@ class SceneEnvBase(ManipSpaceEnv):
         return float(all(successes))
 
     def set_scene_state(self, state_dict: dict):
-        """Teleport the scene to a given state. Respects lock rules — if any object
-        refuses, no state changes are made.
-
-        Args:
-            state_dict: dict mapping object name → value.
-                        Joint objects: float (joint position).
-                        Free-body objects: (pos, quat) tuple.
-                        Buttons: int (0 or 1).
-        Returns:
-            True if state was set, False if any object refused (locked).
-        """
-        # Phase 1: check all objects.
         for name, value in state_dict.items():
             obj = self.get_object(name)
             if obj is None:
@@ -351,7 +339,6 @@ class SceneEnvBase(ManipSpaceEnv):
             if not obj.can_set_state(self, value):
                 return False
 
-        # Phase 2: apply all changes.
         for name, value in state_dict.items():
             obj = self.get_object(name)
             if obj is None:
@@ -362,11 +349,6 @@ class SceneEnvBase(ManipSpaceEnv):
         return True
 
     def _object_state_from_info(self, obj, info_dict):
-        """Parse a settable value for `obj` from a step/reset info dict.
-
-        Returns the value expected by `obj.set_state(self, value)`, or `None` if
-        the dict has no settable key for this object.
-        """
         if hasattr(obj, "_target_button_states"):
             key = f"heca_{obj.name}_ste"
             if key in info_dict:
@@ -409,16 +391,27 @@ class SceneEnvBase(ManipSpaceEnv):
         return None
 
     def _noisy_value(self, obj, value, noise_scale):
-        """Return `value` perturbed by Gaussian noise (used in `random` mode)."""
         if noise_scale <= 0.0:
             return value
 
         # Free body: value is (pos, quat).
         if isinstance(value, tuple):
             pos, quat = value
-            pos = np.asarray(pos, dtype=float) + self.np_random.normal(
-                0.0, noise_scale, size=3
-            )
+            pos = np.asarray(pos, dtype=float)
+            # Perturb only x/y (the axes with sampling bounds); keep the
+            # requested height so the object stays on its surface/stack.
+            pos[:2] += self.np_random.normal(0.0, noise_scale, size=2)
+            bounds = getattr(obj, "_sampling_bounds", None)
+            if bounds is None:
+                bounds = getattr(self, "_object_sampling_bounds", None)
+            if bounds is not None:
+                bounds = np.asarray(bounds, dtype=float)
+                # Bounds convention is [[xlo, ylo], [xhi, yhi]], so the per-axis
+                # lower limits are `bounds[0]` and upper limits `bounds[1]`.
+                if bounds.shape == (2, 2):
+                    pos[:2] = np.clip(pos[:2], bounds[0], bounds[1])
+                elif bounds.shape == (2, 3):
+                    pos = np.clip(pos, bounds[0], bounds[1])
             return (pos, quat)
 
         # Discrete button state: no continuous noise.
@@ -432,28 +425,26 @@ class SceneEnvBase(ManipSpaceEnv):
             val = float(np.clip(val, pos_range[0], pos_range[1]))
         return val
 
-    def step_scene(self, info_dict, failure_mode="skip", noise_scale=0.0):
-        """Teleport-based step: update entities from an info dict instead of an action.
+    def step_scene(
+        self,
+        info_dict,
+        terminate=0.3,
+        skip=0.1,
+        random=0.6,
+        noise_scale=0.2,
+    ):
+        mode_probs = np.array([terminate, skip, random], dtype=float)
+        if np.any(mode_probs < 0):
+            raise ValueError("Failure mode probabilities must be non-negative.")
+        if mode_probs.sum() <= 0:
+            raise ValueError(
+                "At least one failure mode probability must be positive; "
+                f"got terminate={terminate}, skip={skip}, random={random}."
+            )
+        mode = self.np_random.choice(
+            ["terminate", "skip", "random"], p=mode_probs / mode_probs.sum()
+        )
 
-        Args:
-            info_dict: dict of desired entity states, using the same keys as
-                `step()`/`reset()` info (e.g. `heca_faucet0_ang`,
-                `heca_button0_ste`, `heca_cube0_pos`, ...).
-            failure_mode: how to handle objects that cannot be set because they
-                are locked:
-                - "terminate": if any requested object is locked, terminate the
-                  episode (return `terminated=True`) and apply no updates.
-                - "skip": if any requested object is locked, apply no updates at
-                  all (whole-scene no-op).
-                - "random": locked objects are set to a noisy version of the
-                  requested value (`value + Gaussian(0, noise_scale)`); unlocked
-                  objects are set exactly.
-            noise_scale: standard deviation of the Gaussian noise used in
-                "random" mode.
-
-        Returns:
-            (ob, reward, terminated, truncated, info), matching `step()`.
-        """
         self.pre_step()
 
         # Parse requested updates and detect locked objects.
@@ -469,18 +460,20 @@ class SceneEnvBase(ManipSpaceEnv):
             if not obj.can_set_state(self, value)
         }
 
-        if failure_mode == "terminate":
+        if mode == "terminate":
             if locked:
                 self._success = False
                 ob = self.compute_observation()
                 info = self.get_step_info()
                 info["success"] = False
+                info["failure_mode"] = mode
                 return ob, self.compute_reward(), True, False, info
-        elif failure_mode == "skip":
+        elif mode == "skip":
             if locked:
                 ob = self.compute_observation()
                 info = self.get_step_info()
                 info["success"] = bool(self._success)
+                info["failure_mode"] = mode
                 return (
                     ob,
                     self.compute_reward(),
@@ -488,14 +481,14 @@ class SceneEnvBase(ManipSpaceEnv):
                     self.truncate_episode(),
                     info,
                 )
-        elif failure_mode != "random":
-            raise ValueError(
-                f"Unknown failure_mode {failure_mode!r}; expected one of 'terminate', 'skip', 'random'."
-            )
 
         # Apply the updates.
         for name, (obj, value) in targets.items():
-            if failure_mode == "random" and name in locked:
+            if mode == "random":
+                # Locked values can never change; only unlocked objects are
+                # resampled (randomly perturbed) instead of applied exactly.
+                if name in locked:
+                    continue
                 value = self._noisy_value(obj, value, noise_scale)
             obj.set_state(self, value)
 
@@ -509,7 +502,143 @@ class SceneEnvBase(ManipSpaceEnv):
         ob = self.compute_observation()
         info = self.get_step_info()
         info["success"] = bool(self._success)
+        info["failure_mode"] = mode
         reward = self.compute_reward()
         terminated = self.terminate_episode()
         truncated = self.truncate_episode()
         return ob, reward, terminated, truncated, info
+
+    def set_start(self, info_dict, return_info=True):
+        """Teleport the scene to a start configuration (ignores locks).
+
+        Entities in `info_dict` are set exactly to their requested values.
+        All other entities are randomized, and their goal is pinned to their
+        (random) current state so start == goal for them and they never block
+        success. Pair with `set_goal` for evaluation.
+        """
+        # Parse requested updates.
+        targets = {}
+        for obj in self.objects:
+            value = self._object_state_from_info(obj, info_dict)
+            if value is not None:
+                targets[obj.name] = (obj, value)
+
+        # Apply every requested state exactly (locks are ignored: this is a
+        # reset-like teleport to a desired start configuration).
+        for name, (obj, value) in targets.items():
+            obj.set_state(self, value)
+
+            joint_name = getattr(obj, "joint_name", None)
+            if joint_name is not None:
+                self._data.joint(joint_name).qvel[:] = 0.0
+
+        # Entities not part of the start configuration: randomize and pin the
+        # goal to the randomized current state (start == goal for them).
+        for obj in self.objects:
+            if obj.name in targets:
+                continue
+            if not (
+                hasattr(obj, "_target_mocap_id")
+                or hasattr(obj, "_target_val")
+                or hasattr(obj, "_target_button_states")
+            ):
+                continue  # Passive containers (shelf/box).
+            obj.randomize(self)
+            joint_name = getattr(obj, "joint_name", None)
+            if joint_name is not None:
+                self._data.joint(joint_name).qvel[:] = 0.0
+            self._pin_target_to_current(obj)
+
+        self._apply_button_states()
+        self._success = all(val for val, _ in self._compute_successes())
+
+        if return_info:
+            return self.compute_observation(), self.get_reset_info()
+
+    def _set_object_target(self, obj, value):
+        """Set only the *goal* (target) of an object, leaving its current state.
+
+        Free bodies: target mocap pose. Articulated objects: `_target_val`
+        (plus the visual goal site where the object exposes `_set_site`).
+        Buttons: `_target_button_states`.
+        """
+        if hasattr(obj, "_target_mocap_id"):
+            pos, quat = value
+            self._data.mocap_pos[obj._target_mocap_id] = pos
+            self._data.mocap_quat[obj._target_mocap_id] = quat
+        elif hasattr(obj, "_target_val"):
+            val = float(np.asarray(value).ravel()[0])
+            obj._target_val = val
+            set_site = getattr(obj, "_set_site", None)
+            if set_site is not None:
+                set_site(self, val)
+        elif hasattr(obj, "_target_button_states"):
+            obj._target_button_states[0] = int(
+                round(float(np.asarray(value).ravel()[0]))
+            )
+
+    def _pin_target_to_current(self, obj):
+        """Set the object's goal to its current state (start == goal)."""
+        if hasattr(obj, "_target_mocap_id"):
+            pos = self._data.joint(obj.joint_name).qpos[:3].copy()
+            quat = self._data.joint(obj.joint_name).qpos[3:].copy()
+            self._data.mocap_pos[obj._target_mocap_id] = pos
+            self._data.mocap_quat[obj._target_mocap_id] = quat
+        elif hasattr(obj, "_target_val"):
+            self._set_object_target(obj, self._data.joint(obj.joint_name).qpos[0])
+        elif hasattr(obj, "_target_button_states"):
+            obj._target_button_states[0] = int(obj._cur_state[0])
+
+    def set_goal(self, info_dict, return_info=True):
+        """Set only the goal (target) state of the entities in `info_dict`.
+
+        The current scene is untouched — only each object's goal changes
+        (target mocap pose, `_target_val`, or `_target_button_states`).
+        Combine with `set_start`: after the model reaches the goals,
+        `info["success"]` / `compute_reward()` return True. The goal
+        observation (`reset_info["goal"]`) is recomputed accordingly.
+        """
+        # Parse requested goals.
+        targets = {}
+        for obj in self.objects:
+            value = self._object_state_from_info(obj, info_dict)
+            if value is not None:
+                targets[obj.name] = (obj, value)
+
+        # Set only the goals (targets), never the current state.
+        for name, (obj, value) in targets.items():
+            self._set_object_target(obj, value)
+
+        # Recompute the goal observation with all goal objects at their goals.
+        saved_qpos = self._data.qpos.copy()
+        saved_qvel = self._data.qvel.copy()
+        saved_cur_states = {}
+        for obj in self.objects:
+            if hasattr(obj, "_cur_state"):
+                saved_cur_states[obj.name] = obj._cur_state.copy()
+
+        for name, (obj, value) in targets.items():
+            obj.set_state(self, value)
+        self._apply_button_states()
+        self._cur_goal_ob = (
+            self.compute_oracle_observation()
+            if self._use_oracle_rep
+            else self.compute_ob_info()
+        )
+        self._cur_goal_rendered = (
+            self.get_pixel_observation() if self._render_goal else None
+        )
+
+        # Restore the current state (goals persist: mocap / _target_val /
+        # _target_button_states were set by _set_object_target).
+        self._data.qpos[:] = saved_qpos
+        self._data.qvel[:] = saved_qvel
+        for obj in self.objects:
+            if obj.name in saved_cur_states:
+                obj._cur_state[:] = saved_cur_states[obj.name]
+        self._apply_button_states()
+
+        self._success = all(val for val, _ in self._compute_successes())
+
+        if return_info:
+            return self.compute_observation(), self.get_reset_info()

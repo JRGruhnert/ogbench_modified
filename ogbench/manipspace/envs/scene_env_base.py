@@ -482,7 +482,8 @@ class SceneEnvBase(ManipSpaceEnv):
                     info,
                 )
 
-        # Apply the updates.
+        # Apply the updates (current states only — the task goals are never
+        # touched, so success compares the scene against the real goals).
         for name, (obj, value) in targets.items():
             if mode == "random":
                 # Locked values can never change; only unlocked objects are
@@ -490,7 +491,7 @@ class SceneEnvBase(ManipSpaceEnv):
                 if name in locked:
                     continue
                 value = self._noisy_value(obj, value, noise_scale)
-            obj.set_state(self, value)
+            self._set_current(obj, value)
 
             joint_name = getattr(obj, "joint_name", None)
             if joint_name is not None:
@@ -555,6 +556,23 @@ class SceneEnvBase(ManipSpaceEnv):
         if return_info:
             return self.compute_observation(), self.get_reset_info()
 
+    def _set_current(self, obj, value):
+        """Set only the *current* state of an object, leaving its goal untouched.
+
+        Mirror of `_set_object_target` (goal only): free bodies -> joint qpos,
+        articulated objects -> joint value, buttons -> `_cur_state`.
+        """
+        if hasattr(obj, "_target_mocap_id"):
+            pos, quat = value
+            self._data.joint(obj.joint_name).qpos[:3] = pos
+            self._data.joint(obj.joint_name).qpos[3:] = quat
+        elif hasattr(obj, "_target_val"):
+            self._data.joint(obj.joint_name).qpos[0] = float(
+                np.asarray(value).ravel()[0]
+            )
+        elif hasattr(obj, "_target_button_states"):
+            obj._cur_state[0] = int(round(float(np.asarray(value).ravel()[0])))
+
     def _set_object_target(self, obj, value):
         """Set only the *goal* (target) of an object, leaving its current state.
 
@@ -618,7 +636,7 @@ class SceneEnvBase(ManipSpaceEnv):
                 saved_cur_states[obj.name] = obj._cur_state.copy()
 
         for name, (obj, value) in targets.items():
-            obj.set_state(self, value)
+            self._set_current(obj, value)
         self._apply_button_states()
         self._cur_goal_ob = (
             self.compute_oracle_observation()

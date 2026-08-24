@@ -8,6 +8,11 @@ class PegObject(SceneObject):
     xml_file = "heca_peg.xml"
     name = "peg"
 
+    # Local offset from the free body origin (base) to the handle site, used to
+    # recover the base position from `heca_peg0_pos` (which is the handle site).
+    # The offset is lateral, so it rotates with the peg's orientation.
+    handle_offset = np.array([0.0, -0.078, 0.0])
+
     def __init__(self, id=0, pos=None, euler=None, sampling_bounds=None):
         super().__init__(id, pos, euler)
         self._sampling_bounds = sampling_bounds

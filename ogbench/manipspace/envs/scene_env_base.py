@@ -348,36 +348,45 @@ class SceneEnvBase(ManipSpaceEnv):
         self._apply_button_states()
         return True
 
-    def _object_state_from_info(self, obj, info_dict):
+    def _object_state_from_info(self, obj, info_dict, use_target_keys=False):
+        """Parse a settable value for `obj` from a step/reset info dict.
+
+        With `use_target_keys=True` the `heca_target_*` goal keys are read
+        (e.g. `heca_target_peg0_pos`), otherwise the current-state `heca_*`
+        keys are used (e.g. `heca_peg0_pos`).
+        """
+        prefix = "target_" if use_target_keys else ""
+
         if hasattr(obj, "_target_button_states"):
-            key = f"heca_{obj.name}_ste"
+            key = f"heca_{prefix}{obj.name}_ste"
             if key in info_dict:
                 return int(round(float(np.asarray(info_dict[key]).ravel()[0])))
             return None
 
         if hasattr(obj, "_target_val"):
+            pos_key = f"heca_{prefix}{obj.name}_pos"
+            # For slide (prismatic) joints, the world handle position is
+            # preferred over the raw joint value: it is orientation-invariant,
+            # so recorded demos replay to the same world state regardless of
+            # how the object is mounted (euler) in the scene.
+            if pos_key in info_dict and getattr(obj, "_site_id", None) is not None:
+                jt = self._model.joint(obj.joint_name).type
+                if jt == mujoco.mjtJoint.mjJNT_SLIDE:
+                    return self._world_handle_to_joint_val(obj, info_dict[pos_key])
             for suffix in ("_ang", "_sca"):
-                key = f"heca_{obj.name}{suffix}"
+                key = f"heca_{prefix}{obj.name}{suffix}"
                 if key in info_dict:
                     return float(np.asarray(info_dict[key]).ravel()[0])
             return None
 
         if hasattr(obj, "_target_mocap_id"):
-            base_key = f"heca_{obj.name}_pos_base"
-            pos_key = f"heca_{obj.name}_pos"
-            if base_key in info_dict:
-                pos = np.asarray(info_dict[base_key], dtype=float).ravel()
-            elif pos_key in info_dict:
-                pos = np.asarray(info_dict[pos_key], dtype=float).ravel()
-                # Some free bodies only expose the handle site as `_pos` (e.g.
-                # the lid). Recover the base by removing the fixed local offset.
-                handle_offset = getattr(obj, "handle_offset", None)
-                if handle_offset is not None:
-                    pos = pos - np.asarray(handle_offset, dtype=float)
-            else:
-                return None
-            rot_key = f"heca_{obj.name}_rot"
-            yaw_key = f"heca_{obj.name}_yaw"
+            base_key = f"heca_{prefix}{obj.name}_pos_base"
+            pos_key = f"heca_{prefix}{obj.name}_pos"
+            rot_key = f"heca_{prefix}{obj.name}_rot"
+            yaw_key = f"heca_{prefix}{obj.name}_yaw"
+
+            # Parse the requested orientation first (needed to recover the base
+            # from a handle-site position below).
             if rot_key in info_dict:
                 quat = np.asarray(info_dict[rot_key], dtype=float).ravel()
             elif yaw_key in info_dict:
@@ -386,9 +395,60 @@ class SceneEnvBase(ManipSpaceEnv):
                 ).wxyz
             else:
                 quat = lie.SO3.identity().wxyz
+
+            if base_key in info_dict:
+                pos = np.asarray(info_dict[base_key], dtype=float).ravel()
+            elif pos_key in info_dict:
+                pos = np.asarray(info_dict[pos_key], dtype=float).ravel()
+                if not use_target_keys:
+                    # `heca_{name}_pos` is the handle site (world frame), while
+                    # the free body / target mocap live at the base. Recover the
+                    # base by removing the local handle offset, rotated by the
+                    # requested orientation (lid: pure z-offset; peg: lateral
+                    # offset that rotates with yaw).
+                    handle_offset = getattr(obj, "handle_offset", None)
+                    if handle_offset is not None:
+                        pos = pos - lie.SO3(wxyz=quat).apply(
+                            np.asarray(handle_offset, dtype=float)
+                        )
+            else:
+                return None
             return (pos, quat)
 
         return None
+
+    def _world_handle_to_joint_val(self, obj, handle_pos):
+        """Convert a world-frame handle position to the slide-joint value.
+
+        The handle site moves linearly with the joint value along the joint
+        axis, so the world axis direction is measured empirically from the
+        current state — this automatically accounts for the object's pose
+        (position + euler). The joint value is temporarily perturbed and
+        restored.
+        """
+        joint = self._data.joint(obj.joint_name)
+        q0 = float(joint.qpos[0])
+        p0 = self._data.site_xpos[obj._site_id].copy()
+
+        # Measure the world displacement of the handle for +1 joint unit.
+        joint.qpos[0] = q0 + 1.0
+        mujoco.mj_kinematics(self._model, self._data)
+        axis = self._data.site_xpos[obj._site_id].copy() - p0
+        joint.qpos[0] = q0
+        mujoco.mj_kinematics(self._model, self._data)
+
+        denom = float(np.dot(axis, axis))
+        if denom <= 1e-12:
+            return q0
+        target = np.asarray(handle_pos, dtype=float).ravel()[:3]
+        q = float(q0 + np.dot(target - p0, axis) / denom)
+        # Clamp to the joint's physical range: an unreachable world target
+        # (e.g. a mirrored drawer mounting) must not push the object through
+        # the back of its case.
+        pos_range = getattr(obj, "pos_range", None)
+        if pos_range is not None:
+            q = float(np.clip(q, pos_range[0], pos_range[1]))
+        return q
 
     def _noisy_value(self, obj, value, noise_scale):
         if noise_scale <= 0.0:
@@ -616,10 +676,15 @@ class SceneEnvBase(ManipSpaceEnv):
         `info["success"]` / `compute_reward()` return True. The goal
         observation (`reset_info["goal"]`) is recomputed accordingly.
         """
-        # Parse requested goals.
+        # Parse requested goals: prefer the goal keys (`heca_target_*`) that
+        # the scene exposes, falling back to the plain `heca_*` keys.
         targets = {}
         for obj in self.objects:
-            value = self._object_state_from_info(obj, info_dict)
+            value = self._object_state_from_info(
+                obj, info_dict, use_target_keys=True
+            )
+            if value is None:
+                value = self._object_state_from_info(obj, info_dict)
             if value is not None:
                 targets[obj.name] = (obj, value)
 

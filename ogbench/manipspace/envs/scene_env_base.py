@@ -485,26 +485,7 @@ class SceneEnvBase(ManipSpaceEnv):
             val = float(np.clip(val, pos_range[0], pos_range[1]))
         return val
 
-    def step_scene(
-        self,
-        info_dict,
-        terminate=0.4,
-        skip=0.4,
-        random=0.2,
-        noise_scale=0.2,
-    ):
-        mode_probs = np.array([terminate, skip, random], dtype=float)
-        if np.any(mode_probs < 0):
-            raise ValueError("Failure mode probabilities must be non-negative.")
-        if mode_probs.sum() <= 0:
-            raise ValueError(
-                "At least one failure mode probability must be positive; "
-                f"got terminate={terminate}, skip={skip}, random={random}."
-            )
-        mode = self.np_random.choice(
-            ["terminate", "skip", "random"], p=mode_probs / mode_probs.sum()
-        )
-
+    def step_scene(self, info_dict):
         self.pre_step()
 
         # Parse requested updates and detect locked objects.
@@ -514,45 +495,8 @@ class SceneEnvBase(ManipSpaceEnv):
             if value is not None:
                 targets[obj.name] = (obj, value)
 
-        locked = {
-            name
-            for name, (obj, value) in targets.items()
-            if not obj.can_set_state(self, value)
-        }
-
-        if mode == "terminate":
-            if locked:
-                self._success = False
-                ob = self.compute_observation()
-                info = self.get_step_info()
-                info["success"] = False
-                info["failure_mode"] = mode
-                return ob, self.compute_reward(), True, False, info
-        elif mode == "skip":
-            if locked:
-                ob = self.compute_observation()
-                info = self.get_step_info()
-                info["success"] = bool(self._success)
-                info["failure_mode"] = mode
-                return (
-                    ob,
-                    self.compute_reward(),
-                    self.terminate_episode(),
-                    self.truncate_episode(),
-                    info,
-                )
-
-        # Apply the updates (current states only — the task goals are never
-        # touched, so success compares the scene against the real goals).
         for name, (obj, value) in targets.items():
-            if mode == "random":
-                # Locked values can never change; only unlocked objects are
-                # resampled (randomly perturbed) instead of applied exactly.
-                if name in locked:
-                    continue
-                value = self._noisy_value(obj, value, noise_scale)
             self._set_current(obj, value)
-
             joint_name = getattr(obj, "joint_name", None)
             if joint_name is not None:
                 self._data.joint(joint_name).qvel[:] = 0.0
@@ -563,7 +507,6 @@ class SceneEnvBase(ManipSpaceEnv):
         ob = self.compute_observation()
         info = self.get_step_info()
         info["success"] = bool(self._success)
-        info["failure_mode"] = mode
         reward = self.compute_reward()
         terminated = self.terminate_episode()
         truncated = self.truncate_episode()
@@ -680,9 +623,7 @@ class SceneEnvBase(ManipSpaceEnv):
         # the scene exposes, falling back to the plain `heca_*` keys.
         targets = {}
         for obj in self.objects:
-            value = self._object_state_from_info(
-                obj, info_dict, use_target_keys=True
-            )
+            value = self._object_state_from_info(obj, info_dict, use_target_keys=True)
             if value is None:
                 value = self._object_state_from_info(obj, info_dict)
             if value is not None:

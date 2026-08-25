@@ -450,45 +450,10 @@ class SceneEnvBase(ManipSpaceEnv):
             q = float(np.clip(q, pos_range[0], pos_range[1]))
         return q
 
-    def _noisy_value(self, obj, value, noise_scale):
-        if noise_scale <= 0.0:
-            return value
-
-        # Free body: value is (pos, quat).
-        if isinstance(value, tuple):
-            pos, quat = value
-            pos = np.asarray(pos, dtype=float)
-            # Perturb only x/y (the axes with sampling bounds); keep the
-            # requested height so the object stays on its surface/stack.
-            pos[:2] += self.np_random.normal(0.0, noise_scale, size=2)
-            bounds = getattr(obj, "_sampling_bounds", None)
-            if bounds is None:
-                bounds = getattr(self, "_object_sampling_bounds", None)
-            if bounds is not None:
-                bounds = np.asarray(bounds, dtype=float)
-                # Bounds convention is [[xlo, ylo], [xhi, yhi]], so the per-axis
-                # lower limits are `bounds[0]` and upper limits `bounds[1]`.
-                if bounds.shape == (2, 2):
-                    pos[:2] = np.clip(pos[:2], bounds[0], bounds[1])
-                elif bounds.shape == (2, 3):
-                    pos = np.clip(pos, bounds[0], bounds[1])
-            return (pos, quat)
-
-        # Discrete button state: no continuous noise.
-        if isinstance(value, (int, np.integer)):
-            return value
-
-        # Continuous joint value: clip to the object's valid range.
-        val = float(value) + self.np_random.normal(0.0, noise_scale)
-        pos_range = getattr(obj, "pos_range", None)
-        if pos_range is not None:
-            val = float(np.clip(val, pos_range[0], pos_range[1]))
-        return val
-
     def step_scene(self, info_dict):
         self.pre_step()
 
-        # Parse requested updates and detect locked objects.
+        # Parse requested updates.
         targets = {}
         for obj in self.objects:
             value = self._object_state_from_info(obj, info_dict)

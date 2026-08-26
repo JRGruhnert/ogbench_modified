@@ -26,7 +26,8 @@ class SceneEnvBase(ManipSpaceEnv):
         self._data.qpos[self._arm_joint_ids] = self._home_qpos
         mujoco.mj_kinematics(self._model, self._data)
 
-        is_collection = self._mode in ("data_collection", "collection", "randomized")
+        is_collection = self._mode in ("data_collection", "collection")
+        is_randomized = self._mode == "randomized"
 
         if is_collection:
             self.initialize_arm()
@@ -34,6 +35,38 @@ class SceneEnvBase(ManipSpaceEnv):
                 obj.randomize(self)
             self._apply_button_states()
             self.set_new_target(return_info=False)
+        elif is_randomized:
+            # Like task mode, but the goals are randomized instead of coming from a task spec
+            self.initialize_arm()
+            for obj in self.objects:
+                obj.randomize(self)
+                obj.handle_target(self)
+            self._apply_button_states()
+
+            saved_qpos, saved_qvel = self._data.qpos.copy(), self._data.qvel.copy()
+            saved_cur_states = {}
+            for obj in self.objects:
+                if hasattr(obj, "_cur_state"):
+                    saved_cur_states[obj.name] = obj._cur_state.copy()
+
+            for obj in self.objects:
+                self._set_object_to_target(obj)
+            self._apply_button_states()
+            self._cur_goal_ob = (
+                self.compute_oracle_observation()
+                if self._use_oracle_rep
+                else self.compute_ob_info()
+            )
+            self._cur_goal_rendered = (
+                self.get_pixel_observation() if self._render_goal else None
+            )
+
+            self._data.qpos[:] = saved_qpos
+            self._data.qvel[:] = saved_qvel
+            for obj in self.objects:
+                if obj.name in saved_cur_states:
+                    obj._cur_state[:] = saved_cur_states[obj.name]
+            self._apply_button_states()
         else:
             if self.cur_task_info is None:
                 self.cur_task_id = 1
@@ -60,6 +93,16 @@ class SceneEnvBase(ManipSpaceEnv):
             self.initialize_arm()
             for obj in self._objects:
                 obj.init_to_init(self, self.cur_task_info)
+            for obj in self._objects:
+                value = obj.get_target_from_task(self.cur_task_info["goal"])
+                if value is None:
+                    continue
+                if hasattr(obj, "_target_mocap_id"):
+                    arr = np.asarray(value)
+                    pos = arr[obj.id] if arr.ndim == 2 else np.asarray(value).ravel()
+                    self._set_object_target(obj, (pos, lie.SO3.identity().wxyz))
+                else:
+                    self._set_object_target(obj, value)
             self._apply_button_states()
 
         self.pre_step()
@@ -67,7 +110,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._success = False
 
     def set_new_target(self, return_info=True, p_stack=0.5):
-        assert self._mode in ("data_collection", "collection", "randomized")
+        assert self._mode in ("data_collection", "collection")
         self._oracle_just_done = True
 
         probs = self._get_task_probabilities()
@@ -117,20 +160,24 @@ class SceneEnvBase(ManipSpaceEnv):
         if return_info:
             return self.compute_observation(), self.get_reset_info()
 
+    def _set_object_to_target(self, obj):
+        """Move one object's current state to its target state."""
+        if hasattr(obj, "_target_mocap_id"):
+            pos = self._data.mocap_pos[obj._target_mocap_id].copy()
+            quat = self._data.mocap_quat[obj._target_mocap_id].copy()
+            self._data.joint(obj.joint_name).qpos[:3] = pos
+            self._data.joint(obj.joint_name).qpos[3:] = quat
+        elif hasattr(obj, "_target_val"):
+            self._data.joint(obj.joint_name).qpos[0] = obj._target_val
+        elif hasattr(obj, "_target_button_states"):
+            obj._cur_state[0] = obj._target_button_states[0]
+
     def _set_target_object_to_target(self):
         """Move the target object to its current target state."""
         for obj in self.objects:
             if obj.name != self._target_task:
                 continue
-            if hasattr(obj, "_target_mocap_id"):
-                pos = self._data.mocap_pos[obj._target_mocap_id].copy()
-                quat = self._data.mocap_quat[obj._target_mocap_id].copy()
-                self._data.joint(obj.joint_name).qpos[:3] = pos
-                self._data.joint(obj.joint_name).qpos[3:] = quat
-            elif hasattr(obj, "_target_val"):
-                self._data.joint(obj.joint_name).qpos[0] = obj._target_val
-            elif hasattr(obj, "_target_button_states"):
-                obj._cur_state[0] = obj._target_button_states[0]
+            self._set_object_to_target(obj)
             break
 
     def _compute_goal_observation(self):
@@ -139,9 +186,6 @@ class SceneEnvBase(ManipSpaceEnv):
         saved_qvel = self._data.qvel.copy()
         saved_oracle_just_done = self._oracle_just_done
 
-        # Some objects store discrete state outside of qpos/qvel (e.g. buttons
-        # track `_cur_state`). Save and restore it so computing the goal does
-        # not corrupt the current episode state.
         saved_cur_states = {}
         for obj in self.objects:
             if hasattr(obj, "_cur_state"):
@@ -238,9 +282,14 @@ class SceneEnvBase(ManipSpaceEnv):
                 successes.append(result)
         return successes
 
+    def _evaluate_success(self, successes):
+        if self._mode in ("data_collection", "collection"):
+            return any(val for val, name in successes if name == self._target_task)
+        return all(val for val, _ in successes)
+
     def post_step(self):
         successes = self._compute_successes()
-        self._success = all(val for val, _ in successes)
+        self._success = self._evaluate_success(successes)
 
         for obj in self.objects:
             obj.post_step(self)
@@ -252,7 +301,7 @@ class SceneEnvBase(ManipSpaceEnv):
         for obj in self.objects:
             ob_info.update(obj.get_info(self))
 
-        if self._mode in ("data_collection", "collection", "randomized"):
+        if self._mode in ("data_collection", "collection"):
             ob_info["privileged_target_task"] = self._target_task
             ob_info["oracle_done"] = float(self._oracle_just_done)
             self._oracle_just_done = False
@@ -266,15 +315,15 @@ class SceneEnvBase(ManipSpaceEnv):
                     if name == self._target_task
                 )
             )
-            # Workspace normalization metadata (same values as compute_observation)
-            ob_info["meta_xyz_center"] = np.array([0.425, 0.0, 0.0])
-            ob_info["meta_xyz_scaler"] = np.array([10.0])
-            ob_info["meta_gripper_scaler"] = np.array([3.0])
-            ob_info["meta_prismatic_max"] = np.array([3.0])
+
+        ob_info["meta_xyz_center"] = np.array([0.425, 0.0, 0.0])
+        ob_info["meta_xyz_scaler"] = np.array([10.0])
+        ob_info["meta_gripper_scaler"] = np.array([3.0])
+        ob_info["meta_prismatic_max"] = np.array([3.0])
 
     def get_reset_info(self):
         reset_info = super().get_reset_info()
-        if self._mode in ("data_collection", "collection", "randomized"):
+        if self._mode == "randomized":
             reset_info["goal"] = self._cur_goal_ob
             if self._render_goal and self._cur_goal_rendered is not None:
                 reset_info["goal_rendered"] = self._cur_goal_rendered
@@ -282,7 +331,7 @@ class SceneEnvBase(ManipSpaceEnv):
 
     def get_step_info(self):
         ob_info = super().get_step_info()
-        if self._mode in ("data_collection", "collection", "randomized"):
+        if self._mode == "randomized":
             ob_info["goal"] = self._cur_goal_ob
         return ob_info
 
@@ -328,8 +377,8 @@ class SceneEnvBase(ManipSpaceEnv):
         return np.concatenate(ob)
 
     def compute_reward(self):
-        successes = [val for val, _ in self._compute_successes()]
-        return float(all(successes))
+        successes = self._compute_successes()
+        return float(self._evaluate_success(successes))
 
     def set_scene_state(self, state_dict: dict):
         for name, value in state_dict.items():
@@ -365,10 +414,7 @@ class SceneEnvBase(ManipSpaceEnv):
 
         if hasattr(obj, "_target_val"):
             pos_key = f"heca_{prefix}{obj.name}_pos"
-            # For slide (prismatic) joints, the world handle position is
-            # preferred over the raw joint value: it is orientation-invariant,
-            # so recorded demos replay to the same world state regardless of
-            # how the object is mounted (euler) in the scene.
+
             if pos_key in info_dict and getattr(obj, "_site_id", None) is not None:
                 jt = self._model.joint(obj.joint_name).type
                 if jt == mujoco.mjtJoint.mjJNT_SLIDE:
@@ -401,11 +447,6 @@ class SceneEnvBase(ManipSpaceEnv):
             elif pos_key in info_dict:
                 pos = np.asarray(info_dict[pos_key], dtype=float).ravel()
                 if not use_target_keys:
-                    # `heca_{name}_pos` is the handle site (world frame), while
-                    # the free body / target mocap live at the base. Recover the
-                    # base by removing the local handle offset, rotated by the
-                    # requested orientation (lid: pure z-offset; peg: lateral
-                    # offset that rotates with yaw).
                     handle_offset = getattr(obj, "handle_offset", None)
                     if handle_offset is not None:
                         pos = pos - lie.SO3(wxyz=quat).apply(
@@ -418,14 +459,7 @@ class SceneEnvBase(ManipSpaceEnv):
         return None
 
     def _world_handle_to_joint_val(self, obj, handle_pos):
-        """Convert a world-frame handle position to the slide-joint value.
 
-        The handle site moves linearly with the joint value along the joint
-        axis, so the world axis direction is measured empirically from the
-        current state — this automatically accounts for the object's pose
-        (position + euler). The joint value is temporarily perturbed and
-        restored.
-        """
         joint = self._data.joint(obj.joint_name)
         q0 = float(joint.qpos[0])
         p0 = self._data.site_xpos[obj._site_id].copy()
@@ -442,9 +476,7 @@ class SceneEnvBase(ManipSpaceEnv):
             return q0
         target = np.asarray(handle_pos, dtype=float).ravel()[:3]
         q = float(q0 + np.dot(target - p0, axis) / denom)
-        # Clamp to the joint's physical range: an unreachable world target
-        # (e.g. a mirrored drawer mounting) must not push the object through
-        # the back of its case.
+
         pos_range = getattr(obj, "pos_range", None)
         if pos_range is not None:
             q = float(np.clip(q, pos_range[0], pos_range[1]))
@@ -467,7 +499,7 @@ class SceneEnvBase(ManipSpaceEnv):
                 self._data.joint(joint_name).qvel[:] = 0.0
 
         self._apply_button_states()
-        self._success = all(val for val, _ in self._compute_successes())
+        self._success = self._evaluate_success(self._compute_successes())
 
         ob = self.compute_observation()
         info = self.get_step_info()
@@ -519,7 +551,7 @@ class SceneEnvBase(ManipSpaceEnv):
             self._pin_target_to_current(obj)
 
         self._apply_button_states()
-        self._success = all(val for val, _ in self._compute_successes())
+        self._success = self._evaluate_success(self._compute_successes())
 
         if return_info:
             return self.compute_observation(), self.get_reset_info()
@@ -584,8 +616,6 @@ class SceneEnvBase(ManipSpaceEnv):
         `info["success"]` / `compute_reward()` return True. The goal
         observation (`reset_info["goal"]`) is recomputed accordingly.
         """
-        # Parse requested goals: prefer the goal keys (`heca_target_*`) that
-        # the scene exposes, falling back to the plain `heca_*` keys.
         targets = {}
         for obj in self.objects:
             value = self._object_state_from_info(obj, info_dict, use_target_keys=True)
@@ -618,8 +648,6 @@ class SceneEnvBase(ManipSpaceEnv):
             self.get_pixel_observation() if self._render_goal else None
         )
 
-        # Restore the current state (goals persist: mocap / _target_val /
-        # _target_button_states were set by _set_object_target).
         self._data.qpos[:] = saved_qpos
         self._data.qvel[:] = saved_qvel
         for obj in self.objects:
@@ -627,7 +655,7 @@ class SceneEnvBase(ManipSpaceEnv):
                 obj._cur_state[:] = saved_cur_states[obj.name]
         self._apply_button_states()
 
-        self._success = all(val for val, _ in self._compute_successes())
+        self._success = self._evaluate_success(self._compute_successes())
 
         if return_info:
             return self.compute_observation(), self.get_reset_info()

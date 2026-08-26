@@ -5,6 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 ENVS=(
+    vi-scene0
     gt-scene1
     gt-scene2
     gt-scene3

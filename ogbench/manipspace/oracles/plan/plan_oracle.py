@@ -32,7 +32,7 @@ class PlanOracle:
         self._t_max = None
         self._plan = None
 
-    def hold_after(self, times, poses, grasps, checkpoints, duration=1.0):
+    def hold_after(self, times, poses, grasps, checkpoints, duration):
         new_times, new_poses, new_grasps = {}, {}, {}
         additional = 0.0
         for key in times:
@@ -53,7 +53,7 @@ class PlanOracle:
         poses,
         grasps,
         checkpoints,
-        duration=1.0,
+        duration=0.5,
         jitter=True,
         jitter_factor=0.1,
     ):
@@ -63,8 +63,6 @@ class PlanOracle:
         times, poses, grasps = self.hold_after(
             times, poses, grasps, checkpoints, duration
         )
-        # print("times:", {k: round(v, 2) for k, v in times.items()})
-        # print("grasps:", grasps)
         return times, poses, grasps
 
     def make_absolute(self, times):
@@ -198,7 +196,13 @@ class PlanOracle:
     def select_action(self, ob, info):
         # Find the current plan index.
         cur_plan_idx = int((info["time"][0] - self._t_init + 1e-7) // self._env_dt)
-        # print(cur_plan_idx, self._t_init)
+        if cur_plan_idx < 0:
+            # The plan is stale: the simulation was reset after this plan was
+            # built, so `info["time"]` is below `_t_init` and indexing the plan
+            # would go out of bounds. Signal completion so the caller re-plans
+            # from the current state, and hold this step.
+            self._done = True
+            return np.zeros(5)
         if cur_plan_idx >= len(self._plan) - 1:
             cur_plan_idx = len(self._plan) - 1
             self._done = True

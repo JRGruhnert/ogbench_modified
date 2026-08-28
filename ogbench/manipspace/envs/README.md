@@ -7,16 +7,11 @@ Szenen 1-5. (Standard OGBench Szene am Ende des Dokuments)
 
 - Buttons durchlaufen ihre Zustände zyklisch: **2-stufig** `0 -> 1 -> 0`,
   **3-stufig** `0 -> 1 -> 2 -> 0`.
-- Passive Container (Shelf/Box) haben keine Interaktion; sie definieren nur,
-  wo Objekte abgelegt werden können (Zielpositionen).
-- Faucets (Revolute Joints) haben einen Min- und Max-Wert; die Ausgangsposition
-  ist zufällig, die Zielposition ist immer der Min- oder Max-Wert.
-- Buttons haben States, die durch Drücken zyklisch durchlaufen werden.
-  Ausgangsposition und Ziel sind zufällig.
-- Window, Slider und Drawer (Prismatic Joints) haben ebenfalls einen Min- und
-  Max-Wert und funktionieren wie der Faucet.
-- Cube, Peg und Lid werden in einem festgelegten Bereich zufällig platziert.
-  Die Zielposition ist ebenfalls zufällig in diesem Bereich.
+- Passive Container (Shelf/Box) haben keine Interaktion; sie definieren nur, wo Objekte abgelegt werden können (Zielpositionen).
+- Faucets (Revolute Joints) haben einen Min- und Max-Wert; die Ausgangsposition ist zufällig, die Zielposition ist immer der Min- oder Max-Wert.
+- Buttons haben States, die durch Drücken zyklisch durchlaufen werden. Ausgangsposition und Ziel sind zufällig.
+- Window, Slider und Drawer (Prismatic Joints) haben ebenfalls einen Min- und Max-Wert und funktionieren wie der Faucet.
+- Cube, Peg und Lid werden in einem festgelegten Bereich zufällig platziert. Die Zielposition ist ebenfalls zufällig in diesem Bereich.
 - Der Cube kann zusätzlich die Zielbereiche Shelf, Drawer und Box haben.
 - Der Lid (Deckel) kann auf der Box platziert werden.
 - Der Peg verlangt, dass ein Ring auf ihm platziert wird (Ziel).

@@ -26,9 +26,13 @@ class BoxObject(SceneObject):
         return None  # passive container, not a target
 
     def _surface_pos(self, env):
-        """Top surface center of the box bin (used for lid placement/covers)."""
+        """Top surface of the box walls — the rim the lid rests on.
+
+        The box walls are geoms at local z 0.027 with half-height 0.027, so
+        their top (and the resting height of a lid's base) is at +0.054.
+        """
         p = env._data.xpos[self._body_id].copy()
-        p[2] += 0.06  # bin rim height (50% deeper)
+        p[2] += 0.054  # wall height (geoms at z 0.027, half-height 0.027).
         return p
 
     def contains(self, env, obj_pos):

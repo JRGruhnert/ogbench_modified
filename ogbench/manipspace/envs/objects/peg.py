@@ -13,6 +13,11 @@ class PegObject(SceneObject):
     # The offset is lateral, so it rotates with the peg's orientation.
     handle_offset = np.array([0.0, -0.078, 0.0])
 
+    # Resting height of the free body origin when the peg sits on the floor.
+    # Used as the spawn/target z so the peg is grounded immediately (the flat
+    # 0.02 default used for the cube leaves the peg ~9 mm airborne).
+    floor_z = 0.0114
+
     def __init__(self, id=0, pos=None, euler=None, sampling_bounds=None):
         super().__init__(id, pos, euler)
         self._sampling_bounds = sampling_bounds
@@ -32,12 +37,12 @@ class PegObject(SceneObject):
             else env._object_sampling_bounds
         )
         xy = env.np_random.uniform(*bounds)
-        env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
+        env._data.joint(self.joint_name).qpos[:3] = (*xy, self.floor_z)
         env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
         # Init mocap to a random goal — handle_target overwrites when selected.
         bounds = self._sampling_bounds if self._sampling_bounds is not None else [[0.3, -0.3], [0.55, 0.3]]
         xy = env.np_random.uniform(*bounds)
-        env._data.mocap_pos[self._target_mocap_id] = (*xy, 0.02)
+        env._data.mocap_pos[self._target_mocap_id] = (*xy, self.floor_z)
         env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
 
     def init_to_goal(self, env, task_info):
@@ -105,7 +110,7 @@ class PegObject(SceneObject):
         for _ in range(40):
             xy = env.np_random.uniform(*bounds)
             yaw = env.np_random.uniform(0, 2 * np.pi)
-            tar_pos = np.array([*xy, 0.02])
+            tar_pos = np.array([*xy, self.floor_z])
             tar_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
             handle_pos = env._data.site_xpos[self._handle_site_id][:2]
             if np.linalg.norm(handle_pos - tar_pos[:2]) > 0.08:
@@ -142,7 +147,7 @@ class PegObject(SceneObject):
                     else env._object_sampling_bounds
                 )
                 xy = env.np_random.uniform(*bounds)
-                env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
+                env._data.joint(self.joint_name).qpos[:3] = (*xy, self.floor_z)
                 env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(
                     env.np_random.uniform(0, 2 * np.pi)
                 ).wxyz.tolist()

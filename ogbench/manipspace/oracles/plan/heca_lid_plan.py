@@ -15,11 +15,20 @@ class LidPlanOracle(PlanOracle):
             translation=plan_input["lid_initial"].translation(),
             n=2,
         )
-        lid_goal = self.shortest_yaw(
+        # `lid_goal` is the target *base* position, but the plan grasps the lid
+        # by its handle (which sits `handle_offset` above the base). Carry the
+        # handle to base_goal + handle_offset so the base ends up at the goal
+        # (mirrors the peg oracle's handle/base compensation).
+        lid_goal_base = self.shortest_yaw(
             eff_yaw=self.get_yaw(lid_initial),
             obj_yaw=self.get_yaw(plan_input["lid_goal"]) + np.pi / 2,
             translation=plan_input["lid_goal"].translation(),
             n=2,
+        )
+        offset = np.asarray(plan_input["handle_offset"], dtype=float)
+        lid_goal = self.to_pose(
+            pos=lid_goal_base.translation() + offset,
+            yaw=lid_goal_base.rotation().compute_yaw_radians(),
         )
 
         # Poses
@@ -62,7 +71,7 @@ class LidPlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["pick", "place"],
+            checkpoints=["pick-start", "place"],
         )
         return times, poses, grasps
 
@@ -88,6 +97,11 @@ class LidPlanOracle(PlanOracle):
             "lid_goal": self.to_pose(
                 pos=target_pos,
                 yaw=target_yaw,
+            ),
+            # Local offset from the lid's base to its handle site; the plan
+            # grasps the handle, so goal positions must be shifted by it.
+            "handle_offset": np.asarray(
+                env.get_object(f"lid{i}").handle_offset, dtype=float
             ),
         }
 

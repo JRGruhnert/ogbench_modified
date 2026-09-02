@@ -39,9 +39,19 @@ class ShelfObject(SceneObject):
         """Shelf is always accessible from the top."""
         return True
 
+    def _cube_target_pos(self, env):
+        """World position where a cube's *center* rests on the shelf board.
+
+        `shelf_goal` marks the board surface; the cube rests with its center
+        one half-height (0.02, cube geom is 0.04 tall) above that surface.
+        """
+        p = env._data.site_xpos[self._goal_site_id].copy()
+        p[2] += 0.02  # cube half-height.
+        return p
+
     def get_placement_pos(self, env):
         """Target position for placing a block on the shelf."""
-        p = env._data.site_xpos[self._goal_site_id].copy()
+        p = self._cube_target_pos(env)
         p[:2] += env.np_random.uniform(-0.005, 0.005, size=2)
         return p
 
@@ -58,13 +68,11 @@ class ShelfObject(SceneObject):
     def init_to_goal(self, env, task_info):
         """Override cube mocap when shelf_block=1 in task goal."""
         if task_info["goal"].get("shelf_block", 0) == 1 and self._cube is not None:
-            shelf_pos = env._data.site_xpos[self._goal_site_id].copy()
             identity = lie.SO3.identity().wxyz.tolist()
-            self._cube.set_all_mocap(env, shelf_pos, identity)
+            self._cube.set_all_mocap(env, self._cube_target_pos(env), identity)
 
     def handle_target(self, env):
-        """Set cube mocap target to shelf goal position (data-collection mode)."""
+        """Set cube mocap target to the shelf goal position (data-collection mode)."""
         if self._cube is not None:
-            shelf_pos = env._data.site_xpos[self._goal_site_id].copy()
             identity = lie.SO3.identity().wxyz.tolist()
-            self._cube.set_all_mocap(env, shelf_pos, identity)
+            self._cube.set_all_mocap(env, self._cube_target_pos(env), identity)

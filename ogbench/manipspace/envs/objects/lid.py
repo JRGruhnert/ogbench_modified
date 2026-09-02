@@ -12,6 +12,11 @@ class LidObject(SceneObject):
     # recover the base position from `heca_lid0_pos` (which is the handle site).
     handle_offset = np.array([0.0, 0.0, 0.0492])
 
+    # Resting height of the free body origin when the lid sits on the floor.
+    # Used as the spawn/target z so the lid is grounded immediately (the flat
+    # 0.02 default used for the cube leaves the lid ~10 mm airborne).
+    floor_z = 0.0096
+
     def __init__(
         self, id=0, pos=None, euler=None, sampling_bounds=None, containers=None
     ):
@@ -36,12 +41,12 @@ class LidObject(SceneObject):
             else env._object_sampling_bounds
         )
         xy = env.np_random.uniform(*bounds)
-        env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
+        env._data.joint(self.joint_name).qpos[:3] = (*xy, self.floor_z)
         env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
         # Init mocap to a random goal — handle_target overwrites when selected.
         bounds = self._sampling_bounds if self._sampling_bounds is not None else [[0.3, -0.3], [0.55, 0.3]]
         xy = env.np_random.uniform(*bounds)
-        env._data.mocap_pos[self._target_mocap_id] = (*xy, 0.02)
+        env._data.mocap_pos[self._target_mocap_id] = (*xy, self.floor_z)
         env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
 
     def init_to_goal(self, env, task_info):
@@ -131,7 +136,7 @@ class LidObject(SceneObject):
             )
             for _ in range(40):
                 xy = env.np_random.uniform(*bounds)
-                tar_pos = np.array([*xy, 0.02])
+                tar_pos = np.array([*xy, self.floor_z])
                 handle_pos = env._data.site_xpos[self._handle_site_id][:2]
                 if np.linalg.norm(handle_pos - tar_pos[:2]) > 0.08:
                     break
@@ -173,7 +178,7 @@ class LidObject(SceneObject):
                     else env._object_sampling_bounds
                 )
                 xy = env.np_random.uniform(*bounds)
-                env._data.joint(self.joint_name).qpos[:3] = (*xy, 0.02)
+                env._data.joint(self.joint_name).qpos[:3] = (*xy, self.floor_z)
                 env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(
                     env.np_random.uniform(0, 2 * np.pi)
                 ).wxyz.tolist()

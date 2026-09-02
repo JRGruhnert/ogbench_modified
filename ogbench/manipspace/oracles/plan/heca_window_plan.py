@@ -54,7 +54,7 @@ class WindowPlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["grasp-end", "release-start"],
+            checkpoints=["grasp-start", "release-start"],
         )
 
         return times, poses, grasps

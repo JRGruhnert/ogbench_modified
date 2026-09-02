@@ -63,7 +63,7 @@ class CubePlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["pick", "place"],
+            checkpoints=["pick-start", "place"],
         )
         return times, poses, grasps
 

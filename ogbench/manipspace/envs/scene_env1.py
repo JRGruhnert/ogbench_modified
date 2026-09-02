@@ -8,7 +8,6 @@ from ogbench.manipspace.envs.objects import (
     WindowObject,
     CubeObject,
     DrawerObject,
-    LeverObject,
     ShelfObject,
     BoxObject,
 )

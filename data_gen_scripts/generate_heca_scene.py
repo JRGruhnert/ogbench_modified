@@ -19,7 +19,6 @@ from ogbench.manipspace.oracles.plan.heca_cube_plan import CubePlanOracle
 from ogbench.manipspace.oracles.plan.heca_drawer_plan import DrawerPlanOracle
 from ogbench.manipspace.oracles.plan.heca_window_plan import WindowPlanOracle
 from ogbench.manipspace.oracles.plan.heca_faucet_plan import FaucetPlanOracle
-from ogbench.manipspace.oracles.plan.heca_lever_plan import LeverPlanOracle
 from ogbench.manipspace.oracles.plan.heca_peg_plan import PegPlanOracle
 from ogbench.manipspace.oracles.plan.heca_lid_plan import LidPlanOracle
 from ogbench.manipspace.oracles.plan.heca_slider_plan import SliderPlanOracle
@@ -108,13 +107,6 @@ def main(_):
                 )
             elif name.startswith("faucet"):
                 agents[name] = FaucetPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("lever"):
-                agents[name] = LeverPlanOracle(
                     env=env,
                     object_id=oid,
                     noise=FLAGS.noise,
@@ -222,7 +214,7 @@ def main(_):
                         )
                 action = np.clip(action, -1, 1)
                 next_ob, reward, terminated, truncated, info = env.step(action)
-                #print(next_ob.keys())
+                # print(next_ob.keys())
                 done = terminated or truncated
 
                 current_is_start = oracle_start

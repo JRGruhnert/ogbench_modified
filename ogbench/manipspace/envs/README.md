@@ -156,10 +156,12 @@ Szenen 1-5. (Standard OGBench Szene am Ende des Dokuments)
 - `drawer0`: gesperrt solange `button0 == 1`.
 - `window0`: gesperrt solange `button1 == 1`.
 
-#### Tapas (8 TPGMMs)
+#### Tapas (10 TPGMMs)
 
 - window0_a_b
 - window0_b_a
+- drawer0_a_b
+- drawer0_b_a
 - button0_s0_s1
 - button0_s1_s0
 - button1_s0_s1

@@ -26,7 +26,7 @@ vi_dict = dict(
 )
 
 gt_dict = dict(
-    #ob_type="states",
+    # ob_type="states",
     width=256,
     height=256,
     visualize_info=False,
@@ -134,6 +134,7 @@ register(
     max_episode_steps=750,
     kwargs=dict(
         env_type="scene",
+        **gt_dict,
     ),
 )
 register(

@@ -15,10 +15,6 @@ class LidPlanOracle(PlanOracle):
             translation=plan_input["lid_initial"].translation(),
             n=2,
         )
-        # `lid_goal` is the target *base* position, but the plan grasps the lid
-        # by its handle (which sits `handle_offset` above the base). Carry the
-        # handle to base_goal + handle_offset so the base ends up at the goal
-        # (mirrors the peg oracle's handle/base compensation).
         lid_goal_base = self.shortest_yaw(
             eff_yaw=self.get_yaw(lid_initial),
             obj_yaw=self.get_yaw(plan_input["lid_goal"]) + np.pi / 2,
@@ -37,31 +33,32 @@ class LidPlanOracle(PlanOracle):
         poses["approach"] = self.above(lid_initial, 0.12)
         poses["pick-start"] = lid_initial
         poses["pick"] = lid_initial
-        poses["pick-end"] = poses["approach"]
+        poses["pick-end"] = lid_initial
+        poses["leave"] = poses["approach"]
         poses["approach2"] = self.above(lid_goal, 0.12)
         poses["place-start"] = lid_goal
         poses["place"] = lid_goal
-        poses["place-end"] = poses["approach2"]
+        poses["place-end"] = lid_goal
+        poses["leave2"] = poses["approach2"]
         poses["final"] = plan_input["effector_goal"]
 
         # Times
-        distance1 = np.linalg.norm(
-            poses["initial"].translation() - poses["approach"].translation()
-        )
-        distance2 = np.linalg.norm(
-            poses["approach"].translation() - poses["approach2"].translation()
-        )
+        distance = self.distance(poses["initial"], poses["approach"])
+        distance2 = self.distance(poses["leave"], poses["approach2"])
+        distance3 = self.distance(poses["approach2"], poses["final"])
         times = {}
         times["initial"] = 0.0
-        times["approach"] = self._dt * (0.8 + distance1 * 4)
-        times["pick-start"] = self._dt * 1.5
+        times["approach"] = self._dt * (0.8 + distance * 4)
+        times["pick-start"] = self._dt
         times["pick"] = self._dt
         times["pick-end"] = self._dt
+        times["leave"] = self._dt
         times["approach2"] = self._dt * (0.8 + distance2 * 4)
-        times["place-start"] = self._dt * 1.5
+        times["place-start"] = self._dt
         times["place"] = self._dt
-        times["place-end"] = self._dt * 1.5
-        times["final"] = self._dt
+        times["place-end"] = self._dt
+        times["leave2"] = self._dt
+        times["final"] = self._dt * (0.8 + distance3 * 4)
 
         # Grasp
         grasps = self.build_grasps(times, {"pick", "place"})
@@ -71,7 +68,7 @@ class LidPlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["pick-start", "place"],
+            checkpoints=["approach", "pick", "leave", "approach2", "place", "leave"],
         )
         return times, poses, grasps
 

@@ -32,9 +32,9 @@ class FaucetPlanOracle(PlanOracle):
         arc_poses = []
         for angle in arc_angles:
             dz = angle - init_angle
-            rot_dz = np.array([[np.cos(dz), -np.sin(dz), 0],
-                               [np.sin(dz),  np.cos(dz), 0],
-                               [0, 0, 1]])
+            rot_dz = np.array(
+                [[np.cos(dz), -np.sin(dz), 0], [np.sin(dz), np.cos(dz), 0], [0, 0, 1]]
+            )
             world = body_xmat @ rot_dz @ local_handle
             pos = np.array([center[0] + world[0], center[1] + world[1], handle_z])
             yaw = base_yaw + dz
@@ -45,15 +45,19 @@ class FaucetPlanOracle(PlanOracle):
         if delta >= 0:
             local_dir = np.array([-1.0, 0.0, 0.0])  # approach from -x (CW side)
         else:
-            local_dir = np.array([1.0, 0.0, 0.0])   # approach from +x (CCW side)
+            local_dir = np.array([1.0, 0.0, 0.0])  # approach from +x (CCW side)
         # Offset the end effector tangentially by rotating the handle point
         # around the knob center, so it stays on the handle's circle (radius)
         # instead of drifting outward.
         phi = push_offset / radius
         angle = local_dir[0] * phi  # local_dir[0] is +1 or -1
-        rot_phi = np.array([[np.cos(angle), -np.sin(angle), 0],
-                            [np.sin(angle),  np.cos(angle), 0],
-                            [0, 0, 1]])
+        rot_phi = np.array(
+            [
+                [np.cos(angle), -np.sin(angle), 0],
+                [np.sin(angle), np.cos(angle), 0],
+                [0, 0, 1],
+            ]
+        )
         approach_local = rot_phi @ local_handle
         approach_world = body_xmat @ approach_local
         approach_xy = center[:2] + approach_world[:2]
@@ -88,9 +92,8 @@ class FaucetPlanOracle(PlanOracle):
         poses["final"] = plan_input["effector_goal"]
 
         # Times
-        distance = np.linalg.norm(
-            poses["initial"].translation() - poses["approach"].translation()
-        )
+        distance = self.distance(poses["initial"], poses["approach"])
+        distance2 = self.distance(poses["lift"], poses["final"])
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt * (0.8 + distance * 4)
@@ -98,7 +101,7 @@ class FaucetPlanOracle(PlanOracle):
         for i in range(len(arc_poses)):
             times[f"arc_{i}"] = self._dt * 0.4
         times["lift"] = self._dt * 0.5
-        times["final"] = self._dt
+        times["final"] = self._dt * (0.8 + distance2 * 4)
 
         # Grasps
         grasps = {}
@@ -110,7 +113,7 @@ class FaucetPlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["down", f"arc_{len(arc_poses) -1}"],
+            checkpoints=["approach", "down", f"arc_{len(arc_poses) -1}", "lift"],
         )
 
         return times, poses, grasps

@@ -29,31 +29,32 @@ class CubePlanOracle(PlanOracle):
         poses["approach"] = self.above(block_initial, 0.1)
         poses["pick-start"] = block_initial
         poses["pick"] = block_initial
-        poses["pick-end"] = poses["approach"]
+        poses["pick-end"] = block_initial
+        poses["leave"] = poses["approach"]
         poses["approach2"] = self.above(block_goal, 0.1)
         poses["place-start"] = block_goal
         poses["place"] = block_goal
-        poses["place-end"] = poses["approach2"]
+        poses["place-end"] = block_goal
+        poses["leave2"] = poses["approach2"]
         poses["final"] = plan_input["effector_goal"]
 
         # Times
-        distance = np.linalg.norm(
-            poses["initial"].translation() - poses["approach"].translation()
-        )
-        distance2 = np.linalg.norm(
-            poses["approach"].translation() - poses["approach2"].translation()
-        )
+        distance = self.distance(poses["initial"], poses["approach"])
+        distance2 = self.distance(poses["leave"], poses["approach2"])
+        distance3 = self.distance(poses["approach2"], poses["final"])
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt * (0.8 + distance * 4)
-        times["pick-start"] = self._dt * 1.5
+        times["pick-start"] = self._dt
         times["pick"] = self._dt
         times["pick-end"] = self._dt
+        times["leave"] = self._dt
         times["approach2"] = self._dt * (0.8 + distance2 * 4)
-        times["place-start"] = self._dt * 1.5
+        times["place-start"] = self._dt
         times["place"] = self._dt
         times["place-end"] = self._dt
-        times["final"] = self._dt
+        times["leave2"] = self._dt
+        times["final"] = self._dt * (0.8 + distance3 * 4)
 
         # Grasp
         grasps = self.build_grasps(times, {"pick", "place"})
@@ -63,7 +64,7 @@ class CubePlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["pick-start", "place"],
+            checkpoints=["approach", "pick", "leave", "approach2", "place", "leave"],
         )
         return times, poses, grasps
 

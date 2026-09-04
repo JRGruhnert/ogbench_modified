@@ -26,39 +26,36 @@ class SliderPlanOracle(PlanOracle):
         poses = {}
         poses["initial"] = plan_input["effector_initial"]
         poses["approach"] = self.above(slider_initial, 0.06)
-        poses["grasp-start"] = slider_initial
-        poses["grasp-end"] = slider_initial
+        poses["down"] = slider_initial
+        poses["grasp"] = slider_initial
         poses["move"] = slider_goal
-        poses["release-start"] = slider_goal
-        poses["release-end"] = self.above(slider_goal, 0.06)
+        poses["release"] = slider_goal
+        poses["leave"] = self.above(slider_goal, 0.06)
         poses["final"] = plan_input["effector_goal"]
 
         # Times
-        distance = np.linalg.norm(
-            poses["initial"].translation() - poses["approach"].translation()
-        )
-        distance2 = np.linalg.norm(
-            poses["approach"].translation() - poses["final"].translation()
-        )
+        distance = self.distance(poses["initial"], poses["approach"])
+        distance2 = self.distance(poses["grasp"], poses["move"])
+        distance3 = self.distance(poses["leave"], poses["final"])
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt * (0.8 + distance * 4)
-        times["grasp-start"] = self._dt * 0.5
-        times["grasp-end"] = self._dt * 0.5
+        times["down"] = self._dt * 0.5
+        times["grasp"] = self._dt * 0.5
         times["move"] = self._dt * (0.8 + distance2 * 4)
-        times["release-start"] = self._dt * 0.5
-        times["release-end"] = self._dt * 0.5
-        times["final"] = self._dt
+        times["release"] = self._dt * 0.5
+        times["leave"] = self._dt * 0.5
+        times["final"] = self._dt * (0.8 + distance3 * 4)
 
         # Grasps
-        grasps = self.build_grasps(times, {"grasp-end", "release-start"})
+        grasps = self.build_grasps(times, {"grasp", "release"})
 
         # Postprocess
         times, poses, grasps = self.process_keyframes(
             times,
             poses,
             grasps,
-            checkpoints=["grasp-start", "release-start"],
+            checkpoints=["approach", "grasp", "release", "leave"],
         )
 
         return times, poses, grasps

@@ -194,6 +194,56 @@ register(
 )
 
 register(
+    id="gt-scene6",
+    entry_point="ogbench.manipspace.envs.scene_env6:SceneEnv6",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **gt_dict,
+    ),
+)
+
+register(
+    id="gt-scene7",
+    entry_point="ogbench.manipspace.envs.scene_env7:SceneEnv7",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **gt_dict,
+    ),
+)
+
+register(
+    id="gt-scene8",
+    entry_point="ogbench.manipspace.envs.scene_env8:SceneEnv8",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **gt_dict,
+    ),
+)
+
+register(
+    id="gt-scene9",
+    entry_point="ogbench.manipspace.envs.scene_env9:SceneEnv9",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **gt_dict,
+    ),
+)
+
+register(
+    id="gt-scene10",
+    entry_point="ogbench.manipspace.envs.scene_env10:SceneEnv10",
+    max_episode_steps=750,
+    kwargs=dict(
+        env_type="scene",
+        **gt_dict,
+    ),
+)
+
+register(
     id="puzzle-3x3-v0",
     entry_point="ogbench.manipspace.envs.puzzle_env:PuzzleEnv",
     max_episode_steps=500,

@@ -107,16 +107,19 @@ class PegObject(SceneObject):
             if self._sampling_bounds is not None
             else [[0.3, -0.3], [0.55, 0.3]]
         )
+        # Keep the goal rod's orientation equal to the peg's current (spawned)
+        # rotation, so the goal is reachable by pure translation. This matches
+        # the plan-oracle demos, where the peg is carried and placed without
+        # rotating it.
+        cur_ori = env._data.joint(self.joint_name).qpos[3:].copy()
         for _ in range(40):
             xy = env.np_random.uniform(*bounds)
-            yaw = env.np_random.uniform(0, 2 * np.pi)
             tar_pos = np.array([*xy, self.floor_z])
-            tar_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
             handle_pos = env._data.site_xpos[self._handle_site_id][:2]
             if np.linalg.norm(handle_pos - tar_pos[:2]) > 0.08:
                 break
         env._data.mocap_pos[self._target_mocap_id] = tar_pos
-        env._data.mocap_quat[self._target_mocap_id] = tar_ori
+        env._data.mocap_quat[self._target_mocap_id] = cur_ori
 
     def set_state(self, env, value):
         """value is a (pos, quat) tuple."""

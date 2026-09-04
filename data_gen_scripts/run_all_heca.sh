@@ -11,6 +11,11 @@ ENVS=(
     gt-scene3
     gt-scene4
     gt-scene5
+    gt-scene6
+    gt-scene7
+    gt-scene8
+    gt-scene9
+    gt-scene10
 )
 
 NUM_EPISODES=250

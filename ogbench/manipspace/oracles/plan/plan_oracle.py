@@ -88,6 +88,9 @@ class PlanOracle:
             translation=pos,
         )
 
+    def distance(self, pose1, pose2) -> float:
+        return float(np.linalg.norm(pose1.translation() - pose2.translation()))
+
     def compute_keyframes(self, plan_input):
         raise NotImplementedError
 
@@ -164,6 +167,7 @@ class PlanOracle:
         # Generate the plan.
         plan = []
         t = 0.0
+        assert isinstance(self._t_max, float)
         while t < self._t_max:
             action = np.zeros(5)
             action[:3] = xyz_interp(t)
@@ -197,12 +201,9 @@ class PlanOracle:
         # Find the current plan index.
         cur_plan_idx = int((info["time"][0] - self._t_init + 1e-7) // self._env_dt)
         if cur_plan_idx < 0:
-            # The plan is stale: the simulation was reset after this plan was
-            # built, so `info["time"]` is below `_t_init` and indexing the plan
-            # would go out of bounds. Signal completion so the caller re-plans
-            # from the current state, and hold this step.
             self._done = True
             return np.zeros(5)
+        assert isinstance(self._plan, np.ndarray)
         if cur_plan_idx >= len(self._plan) - 1:
             cur_plan_idx = len(self._plan) - 1
             self._done = True

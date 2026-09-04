@@ -158,7 +158,12 @@ def main(_):
                 str_arr = np.asarray(rows, dtype=h5py.string_dtype("utf-8"))
                 if k not in datasets:
                     datasets[k] = save_file.create_dataset(
-                        k, data=str_arr, maxshape=(None,), chunks=True
+                        k,
+                        data=str_arr,
+                        maxshape=(None,),
+                        chunks=True,
+                        compression="gzip",
+                        compression_opts=4,
                     )
                 else:
                     ds = datasets[k]
@@ -168,7 +173,12 @@ def main(_):
             if k not in datasets:
                 maxshape = (None,) + arr.shape[1:]
                 datasets[k] = save_file.create_dataset(
-                    k, data=arr, maxshape=maxshape, chunks=(1,) + arr.shape[1:]
+                    k,
+                    data=arr,
+                    maxshape=maxshape,
+                    chunks=(1,) + arr.shape[1:],
+                    compression="gzip",
+                    compression_opts=4,
                 )
             else:
                 ds = datasets[k]

@@ -17,20 +17,17 @@ from ogbench.manipspace.envs.scene_env_base import SceneEnvBase
 
 class SceneEnv8(SceneEnvBase):
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
-        cube1_bounds = np.asarray([[0.3, 0.1], [0.39, 0.3]])
-        lid_bounds = np.asarray([[0.48, 0.1], [0.55, 0.3]])
         cube0_bounds = np.asarray([[0.30, -0.17], [0.38, 0.05]])
         slider0 = SliderObject(
             id=0,
-            pos=(0.32, -0.35, -0.1),
-            euler=(0, 0, 3.14),
+            pos=(0.30, -0.35, 0.0),
             locks=[{"button0": 0, "button0": 1}],
             pos_range=(0, 0.24),
         )
         slider1 = SliderObject(
             id=1,
-            pos=(0.52, -0.35, -0.1),
-            euler=(0, 0, 3.14),
+            pos=(0.54, 0.18, 0.0),
+            euler=(0, 0, -1.57),
             locks=[{"button0": 2, "button0": 0}],
             pos_range=(0, 0.22),
         )
@@ -48,7 +45,7 @@ class SceneEnv8(SceneEnvBase):
         btn0 = ButtonObject(
             id=0,
             num_states=3,
-            pos=(0.56, -0.1, 0.048),
+            pos=(0.56, -0.2, 0.048),
         )
         objects = [drawer0, cube0, slider0, slider1, btn0]
         super().__init__(

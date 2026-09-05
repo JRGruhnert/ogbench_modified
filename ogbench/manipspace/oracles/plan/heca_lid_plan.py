@@ -49,15 +49,15 @@ class LidPlanOracle(PlanOracle):
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt * (0.8 + distance * 4)
-        times["pick-start"] = self._dt
+        times["pick-start"] = self._dt * 1.5
         times["pick"] = self._dt
         times["pick-end"] = self._dt
-        times["leave"] = self._dt
+        times["leave"] = self._dt * 1.5
         times["approach2"] = self._dt * (0.8 + distance2 * 4)
-        times["place-start"] = self._dt
+        times["place-start"] = self._dt * 1.5
         times["place"] = self._dt
         times["place-end"] = self._dt
-        times["leave2"] = self._dt
+        times["leave2"] = self._dt * 1.5
         times["final"] = self._dt * (0.8 + distance3 * 4)
 
         # Grasp
@@ -68,7 +68,7 @@ class LidPlanOracle(PlanOracle):
             times,
             poses,
             grasps,
-            checkpoints=["approach", "pick", "leave", "approach2", "place", "leave"],
+            checkpoints=["approach", "pick", "leave", "approach2", "place", "leave2"],
         )
         return times, poses, grasps
 

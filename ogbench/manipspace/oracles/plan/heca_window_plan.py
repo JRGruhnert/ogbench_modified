@@ -39,11 +39,11 @@ class WindowPlanOracle(PlanOracle):
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt * (0.8 + distance * 4)
-        times["down"] = self._dt * 0.5
+        times["down"] = self._dt
         times["grasp"] = self._dt * 0.5
         times["move"] = self._dt * (0.8 + distance2 * 4)
         times["release"] = self._dt * 0.5
-        times["leave"] = self._dt * 0.5
+        times["leave"] = self._dt
         times["final"] = self._dt * (0.8 + distance3 * 4)
 
         # Grasps

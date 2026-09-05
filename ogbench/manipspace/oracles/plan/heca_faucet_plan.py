@@ -97,10 +97,10 @@ class FaucetPlanOracle(PlanOracle):
         times = {}
         times["initial"] = 0.0
         times["approach"] = self._dt * (0.8 + distance * 4)
-        times["down"] = self._dt * 0.5
+        times["down"] = self._dt
         for i in range(len(arc_poses)):
             times[f"arc_{i}"] = self._dt * 0.4
-        times["lift"] = self._dt * 0.5
+        times["lift"] = self._dt
         times["final"] = self._dt * (0.8 + distance2 * 4)
 
         # Grasps

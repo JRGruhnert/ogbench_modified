@@ -16,17 +16,17 @@ from ogbench.manipspace.envs.scene_env_base import SceneEnvBase
 
 class SceneEnv10(SceneEnvBase):
     def __init__(self, env_type, permute_blocks=True, *args, **kwargs):
-        cube1_bounds = np.asarray([[0.3, 0.1], [0.39, 0.3]])
-        lid_bounds = np.asarray([[0.48, 0.1], [0.55, 0.3]])
-        cube0_bounds = np.asarray([[0.30, -0.17], [0.38, 0.05]])
+        cube1_bounds = np.asarray([[0.3, 0.15], [0.42, 0.35]])
+        cube0_bounds = np.asarray([[0.3, -0.35], [0.42, -0.15]])
+        lid_bounds = np.asarray([[0.48, -0.2], [0.55, 0.2]])
         box0 = BoxObject(
             id=0,
-            pos=(0.32, -0.35, -0.1),
+            pos=(0.54, -0.35, 0.0),
             euler=(0, 0, 3.14),
         )
         box1 = BoxObject(
             id=1,
-            pos=(0.5, -0.1, 0.0),
+            pos=(0.54, 0.35, 0.0),
         )
         lid0 = LidObject(
             id=0,
@@ -46,9 +46,9 @@ class SceneEnv10(SceneEnvBase):
         )
         faucet0 = FaucetObject(
             id=0,
-            pos=(0.56, -0.1, 0.00),
-            pos_range=(-1.45, 1.0),
-            euler=(0, 0, -1.3),
+            pos=(0.28, 0.0, 0.00),
+            # pos_range=(-1.45, 1.0),
+            euler=(0, 0, 1.57),
         )
         box0.set_lid(lid0)
         box1.set_lid(lid0)

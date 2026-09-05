@@ -34,7 +34,7 @@ class SceneEnv9(SceneEnvBase):
         )
         btn3 = ButtonObject(
             id=3,
-            pos=(0.53, 0.28, 0.048),
+            pos=(0.3, 0.15, 0.048),
             locks=[{"faucet0": -1.3}],
             num_states=3,
         )
@@ -46,7 +46,7 @@ class SceneEnv9(SceneEnvBase):
         )
         faucet1 = FaucetObject(
             id=1,
-            pos=(0.56, 0.1, 0.00),
+            pos=(0.56, 0.0, 0.00),
             euler=(0, 0, -1.57),
             locks=[{"button1": 2}],
         )

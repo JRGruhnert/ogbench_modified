@@ -245,7 +245,27 @@ class SceneEnvBase(ManipSpaceEnv):
                     xy_max=[float(hi[0]), float(hi[1])],
                 )
             else:
-                continue  # buttons (no continuous geometry).
+                # Remaining static objects (e.g. buttons): derive the assembly
+                # body from their geoms (walk up to the top-level body) and use
+                # its footprint.
+                gids = getattr(obj, "_geom_ids", None)
+                if not gids:
+                    continue
+                flat = (
+                    [g for group in gids for g in group]
+                    if any(isinstance(g, (list, tuple)) for g in gids)
+                    else list(gids)
+                )
+                root = int(self._model.geom_bodyid[flat[0]])
+                while self._model.body_parentid[root] != 0:
+                    root = int(self._model.body_parentid[root])
+                lo, hi = self._body_xy_aabb(self._subtree_body_ids(root))
+                shape = dict(
+                    type="rect",
+                    kind="static",
+                    xy_min=[float(lo[0]), float(lo[1])],
+                    xy_max=[float(hi[0]), float(hi[1])],
+                )
             if shape is not None:
                 shapes[obj.name] = shape
         return shapes

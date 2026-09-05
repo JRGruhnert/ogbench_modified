@@ -224,6 +224,231 @@ class SceneEnvBase(ManipSpaceEnv):
             obj.apply_colors_and_locks(self)
         mujoco.mj_forward(self._model, self._data)
 
+    def get_object_boundaries(self) -> dict:
+        shapes = {}
+        for obj in self.objects:
+            if hasattr(obj, "_target_mocap_id"):
+                shape = self._free_body_boundary(obj)
+            elif (
+                hasattr(obj, "_target_val")
+                and getattr(obj, "_site_id", None) is not None
+            ):
+                shape = self._joint_reach_boundary(obj)
+            elif getattr(obj, "_body_id", None) is not None:
+                # Passive container (box/shelf): static footprint.
+                body_ids = self._subtree_body_ids(obj._body_id)
+                lo, hi = self._body_xy_aabb(body_ids)
+                shape = dict(
+                    type="rect",
+                    kind="static",
+                    xy_min=[float(lo[0]), float(lo[1])],
+                    xy_max=[float(hi[0]), float(hi[1])],
+                )
+            else:
+                continue  # buttons (no continuous geometry).
+            if shape is not None:
+                shapes[obj.name] = shape
+        return shapes
+
+    def _subtree_body_ids(self, root: int):
+        """All body ids in the kinematic subtree below `root` (root included)."""
+        out = [root]
+        for b in range(self._model.nbody):
+            p = b
+            while p != 0 and p != root:
+                p = self._model.body_parentid[p]
+            if p == root and b != root:
+                out.append(b)
+        return out
+
+    def _body_planar_radius(self, body_ids):
+        """Max x-y distance from a body frame origin to any of its geoms.
+
+        Used to pad spawn/reach rectangles by the object's own size. For
+        rotated parts this is an upper bound of the planar extent, which is the
+        right thing when the object's orientation is free/random.
+        """
+        m = self._model
+        if not isinstance(body_ids, (list, tuple)):
+            body_ids = [body_ids]
+        r = 0.0
+        for gid in range(m.ngeom):
+            if m.geom_bodyid[gid] not in body_ids:
+                continue
+            px, py = float(m.geom_pos[gid][0]), float(m.geom_pos[gid][1])
+            s = m.geom_size[gid]
+            gt = int(m.geom_type[gid])
+            if gt == mujoco.mjtGeom.mjGEOM_BOX:
+                # Farthest corner distance from the body origin (rotating the
+                # whole object about the origin preserves corner norms, so this
+                # stays valid for arbitrary yaw).
+                shape = float(np.hypot(abs(px) + s[0], abs(py) + s[1]))
+            elif gt == mujoco.mjtGeom.mjGEOM_SPHERE:
+                shape = float(np.hypot(px, py) + s[0])
+            elif gt in (mujoco.mjtGeom.mjGEOM_CYLINDER, mujoco.mjtGeom.mjGEOM_CAPSULE):
+                shape = float(np.hypot(px, py) + s[0] + s[1])  # radius + half len
+            elif gt == mujoco.mjtGeom.mjGEOM_MESH:
+                mid = int(m.geom_dataid[gid])
+                adr, num = m.mesh_vertadr[mid], m.mesh_vertnum[mid]
+                if num:
+                    shape = float(
+                        np.hypot(px, py)
+                        + np.max(np.linalg.norm(m.mesh_vert[adr : adr + num], axis=1))
+                    )
+                else:
+                    shape = float(np.hypot(px, py))
+            else:
+                shape = float(np.hypot(px, py) + np.max(s))
+            r = max(r, shape)
+        return r
+
+    def _free_body_boundary(self, obj):
+        """Padded spawn rectangle for a free-floating object."""
+        bounds = getattr(obj, "_sampling_bounds", None)
+        if bounds is None:
+            bounds = self._object_sampling_bounds
+        jid = self._model.joint(obj.joint_name).id
+        pad = self._body_planar_radius(
+            self._subtree_body_ids(self._model.jnt_bodyid[jid])
+        )
+        return dict(
+            type="rect",
+            kind="free",
+            xy_min=[float(bounds[0][0] - pad), float(bounds[0][1] - pad)],
+            xy_max=[float(bounds[1][0] + pad), float(bounds[1][1] + pad)],
+            spawn_xy_min=[float(bounds[0][0]), float(bounds[0][1])],
+            spawn_xy_max=[float(bounds[1][0]), float(bounds[1][1])],
+            pad=float(pad),
+        )
+
+    def _site_xy_at(self, obj, joint_val, site_id):
+        """Set a 1-D joint to `joint_val` and return the site world x-y."""
+        self._data.joint(obj.joint_name).qpos[0] = float(joint_val)
+        mujoco.mj_forward(self._model, self._data)
+        return self._data.site_xpos[site_id][:2].copy()
+
+    def _body_xy_aabb(self, body_ids):
+        """World x-y bounding box (geom surfaces included) of the given bodies.
+
+        Includes mesh geometry (vertices transformed into the world frame), so
+        the box reflects the full occupied footprint of the part, not just the
+        collision primitives. Evaluated at the *current* state, so call it
+        after moving the joint to the pose you want to measure.
+        """
+        m, d = self._model, self._data
+        if not isinstance(body_ids, (list, tuple)):
+            body_ids = [body_ids]
+        pts = []
+        for gid in range(m.ngeom):
+            if m.geom_bodyid[gid] not in body_ids:
+                continue
+            p = d.geom_xpos[gid]
+            R = d.geom_xmat[gid].reshape(3, 3)
+            gt = int(m.geom_type[gid])
+            s = m.geom_size[gid]
+            if gt == mujoco.mjtGeom.mjGEOM_MESH:
+                mid = int(m.geom_dataid[gid])
+                adr, num = m.mesh_vertadr[mid], m.mesh_vertnum[mid]
+                if num:
+                    verts = m.mesh_vert[adr : adr + num]
+                    world = verts @ R.T + p  # (n,3)
+                    pts.append(world[:, :2])
+                continue
+            # Convex-primitive half-extent along each world axis (rotation aware
+            # via the geom's world rotation), enough for a footprint box.
+            h = np.abs(R) @ np.asarray(s[:3], dtype=float)
+            pts.append(
+                np.array([[p[0] + h[0], p[1] + h[1]], [p[0] - h[0], p[1] - h[1]]])
+            )
+        if not pts:
+            return np.zeros(2), np.zeros(2)
+        allp = np.vstack(pts)
+        return allp.min(axis=0), allp.max(axis=0)
+
+    def _joint_reach_boundary(self, obj):
+        """Prismatic strip (rect) or revolute arc for a jointed object."""
+        jid = self._model.joint(obj.joint_name).id
+        jt = int(self._model.jnt_type[jid])
+        site = obj._site_id
+        lo, hi = obj.pos_range
+        saved = float(self._data.joint(obj.joint_name).qpos[0])
+        try:
+            body_ids = self._subtree_body_ids(self._model.jnt_bodyid[jid])
+            if jt == mujoco.mjtJoint.mjJNT_SLIDE:
+                # Swept area of the moving body over the whole joint range.
+                mins, maxs = [], []
+                endpoints = []
+                for v in (lo, hi):
+                    A = self._site_xy_at(obj, v, site)
+                    endpoints.append(A)
+                    lo2, hi2 = self._body_xy_aabb(body_ids)
+                    mins.append(lo2)
+                    maxs.append(hi2)
+                lo_all = np.min(np.array(mins), axis=0)
+                hi_all = np.max(np.array(maxs), axis=0)
+                return dict(
+                    type="rect",
+                    kind="prismatic",
+                    xy_min=[float(lo_all[0]), float(lo_all[1])],
+                    xy_max=[float(hi_all[0]), float(hi_all[1])],
+                    end0=[float(endpoints[0][0]), float(endpoints[0][1])],
+                    end1=[float(endpoints[1][0]), float(endpoints[1][1])],
+                    joint_range=[float(lo), float(hi)],
+                )
+            A = self._site_xy_at(obj, lo, site)
+            B = self._site_xy_at(obj, hi, site)
+            # Revolute: pivot + handle-tip arc over the joint range.
+            pivot = self._joint_world_pivot(jid)
+            r = float(np.linalg.norm(A - pivot))
+            a0 = float(np.arctan2(A[1] - pivot[1], A[0] - pivot[0]))
+            a1 = float(np.arctan2(B[1] - pivot[1], B[0] - pivot[0]))
+            # Direction: sample the midpoint of the range and see which way the
+            # handle moves from the lo-angle to the hi-angle.
+            am = float(
+                np.arctan2(
+                    self._site_xy_at(obj, 0.5 * (lo + hi), site)[1] - pivot[1],
+                    self._site_xy_at(obj, 0.5 * (lo + hi), site)[0] - pivot[0],
+                )
+            )
+            dmid = (am - a0 + np.pi) % (2 * np.pi) - np.pi
+            direction = 1 if dmid >= 0 else -1
+            if direction == 1:
+                while a1 < a0:
+                    a1 += 2 * np.pi
+            else:
+                while a1 > a0:
+                    a1 -= 2 * np.pi
+            return dict(
+                type="arc",
+                kind="revolute",
+                center=[float(pivot[0]), float(pivot[1])],
+                radius=r,
+                theta0=a0,
+                theta1=a1,
+                direction=direction,
+                joint_range=[float(lo), float(hi)],
+            )
+        finally:
+            self._data.joint(obj.joint_name).qpos[0] = saved
+            mujoco.mj_forward(self._model, self._data)
+
+    def _joint_world_pivot(self, jid):
+        """World x-y of a joint's pivot (anchor in the parent-body frame)."""
+        m = self._model
+        anchor = m.jnt_pos[jid][:2]
+        parent = m.body_parentid[m.jnt_bodyid[jid]]
+        if parent == 0:
+            return anchor.copy()
+        p = self._data.xpos[parent][:2]
+        quat = self._data.xquat[parent]
+        # Rotate the anchor's x-y by the parent orientation.
+        x, y = float(anchor[0]), float(anchor[1])
+        w, qx, qy, qz = quat
+        # (x, y, 0) rotated by quat, take x-y.
+        vx = (1 - 2 * (qy * qy + qz * qz)) * x + 2 * (qx * qy - w * qz) * y
+        vy = 2 * (qx * qy + w * qz) * x + (1 - 2 * (qx * qx + qz * qz)) * y
+        return np.array([p[0] + vx, p[1] + vy])
+
     def add_objects(self, arena_mjcf):
         for obj in self.objects:
             obj.load(arena_mjcf, self._desc_dir)

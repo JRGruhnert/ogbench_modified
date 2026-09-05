@@ -5,20 +5,20 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 ENVS=(
-    vi-scene0
-    gt-scene1
-    gt-scene2
-    gt-scene3
-    gt-scene4
-    gt-scene5
-    gt-scene6
-    gt-scene7
-    gt-scene8
-    gt-scene9
+    #vi-scene0
+    #gt-scene1
+    #gt-scene2
+    #gt-scene3
+    #gt-scene4
+    #gt-scene5
+    #gt-scene6
+    #gt-scene7
+    #gt-scene8
+    #gt-scene9
     gt-scene10
 )
 
-NUM_EPISODES=250
+NUM_EPISODES=300
 DATASET_TYPE=play
 
 for env_name in "${ENVS[@]}"; do

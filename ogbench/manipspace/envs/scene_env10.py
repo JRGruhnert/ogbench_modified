@@ -31,7 +31,7 @@ class SceneEnv10(SceneEnvBase):
         lid0 = LidObject(
             id=0,
             sampling_bounds=lid_bounds,
-            containers=[box0],
+            containers=[box0, box1],
         )
 
         cube0 = CubeObject(

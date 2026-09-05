@@ -9,11 +9,6 @@ import numpy as np
 from absl import app, flags
 from tqdm import trange
 
-import ogbench.manipspace  # noqa
-from ogbench.manipspace.oracles.markov.button_markov import ButtonMarkovOracle
-from ogbench.manipspace.oracles.markov.cube_markov import CubeMarkovOracle
-from ogbench.manipspace.oracles.markov.drawer_markov import DrawerMarkovOracle
-from ogbench.manipspace.oracles.markov.window_markov import WindowMarkovOracle
 from ogbench.manipspace.oracles.plan.heca_button_plan import ButtonPlanOracle
 from ogbench.manipspace.oracles.plan.heca_cube_plan import CubePlanOracle
 from ogbench.manipspace.oracles.plan.heca_drawer_plan import DrawerPlanOracle
@@ -65,74 +60,62 @@ def main(_):
     for obj in env.unwrapped.objects:
         oid = obj.id
         name = obj.name  # e.g. "button_0", "drawer_0", "cube_0"
-        if oracle_type == "markov":
-            if name.startswith("cube"):
-                agents[name] = CubeMarkovOracle(
-                    env=env, min_norm=FLAGS.min_norm, max_step=100
-                )
-            elif name.startswith("button"):
-                agents[name] = ButtonMarkovOracle(env=env, min_norm=FLAGS.min_norm)
-            elif name.startswith("drawer"):
-                agents[name] = DrawerMarkovOracle(env=env, min_norm=FLAGS.min_norm)
-            elif name.startswith("window"):
-                agents[name] = WindowMarkovOracle(env=env, min_norm=FLAGS.min_norm)
-        else:
-            if name.startswith("cube"):
-                agents[name] = CubePlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("button"):
-                agents[name] = ButtonPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("drawer"):
-                agents[name] = DrawerPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("window"):
-                agents[name] = WindowPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("faucet"):
-                agents[name] = FaucetPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("peg"):
-                agents[name] = PegPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("lid"):
-                agents[name] = LidPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
-            elif name.startswith("slider"):
-                agents[name] = SliderPlanOracle(
-                    env=env,
-                    object_id=oid,
-                    noise=FLAGS.noise,
-                    noise_smoothing=FLAGS.noise_smoothing,
-                )
+        if name.startswith("cube"):
+            agents[name] = CubePlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
+        elif name.startswith("button"):
+            agents[name] = ButtonPlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
+        elif name.startswith("drawer"):
+            agents[name] = DrawerPlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
+        elif name.startswith("window"):
+            agents[name] = WindowPlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
+        elif name.startswith("faucet"):
+            agents[name] = FaucetPlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
+        elif name.startswith("peg"):
+            agents[name] = PegPlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
+        elif name.startswith("lid"):
+            agents[name] = LidPlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
+        elif name.startswith("slider"):
+            agents[name] = SliderPlanOracle(
+                env=env,
+                object_id=oid,
+                noise=FLAGS.noise,
+                noise_smoothing=FLAGS.noise_smoothing,
+            )
 
     # Collect data.
     total_steps = 0

@@ -46,6 +46,7 @@ class SceneEnv7(SceneEnvBase):
         )
         box0.set_lid(lid0)
         box0.set_cube(cube0)
+        shelf0.set_cube(cube1)
         objects = [shelf0, cube0, box0, lid0, cube1]
         super().__init__(
             env_type, objects, permute_blocks=permute_blocks, *args, **kwargs

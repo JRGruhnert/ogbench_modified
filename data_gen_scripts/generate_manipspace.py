@@ -6,8 +6,6 @@ import gymnasium
 import numpy as np
 from absl import app, flags
 from tqdm import trange
-
-import ogbench.manipspace  # noqa
 from ogbench.manipspace.oracles.markov.button_markov import ButtonMarkovOracle
 from ogbench.manipspace.oracles.markov.cube_markov import CubeMarkovOracle
 from ogbench.manipspace.oracles.markov.drawer_markov import DrawerMarkovOracle

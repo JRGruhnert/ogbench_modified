@@ -63,10 +63,16 @@ class CubeObject(SceneObject):
             env.np_random.uniform(0, 2 * np.pi)
         ).wxyz.tolist()
         # Init mocap to a random goal — handle_target overwrites when selected.
-        target_bounds = self._target_bounds if self._target_bounds is not None else env._target_sampling_bounds
+        target_bounds = (
+            self._target_bounds
+            if self._target_bounds is not None
+            else env._target_sampling_bounds
+        )
         xy = env.np_random.uniform(*target_bounds)
         env._data.mocap_pos[self._target_mocap_id] = (*xy, 0.02)
-        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
+        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(
+            env.np_random.uniform(0, 2 * np.pi)
+        ).wxyz.tolist()
 
     def init_to_goal(self, env, task_info):
         xyz = task_info["goal"]["block_xyzs"][0]
@@ -103,6 +109,10 @@ class CubeObject(SceneObject):
     def compute_success(self, env):
         obj_pos = env._data.joint(self.joint_name).qpos[:3]
         tar_pos = env._data.mocap_pos[self._target_mocap_id]
+        if env._mode == "randomized":
+            for c in self._containers:
+                if c.contains(env, tar_pos):
+                    return (bool(c.contains(env, obj_pos)), self.name)
         return (bool(np.linalg.norm(obj_pos - tar_pos) <= 0.04), self.name)
 
     def get_info(self, env):
@@ -112,7 +122,9 @@ class CubeObject(SceneObject):
         return {
             f"heca_{self.name}_pos": q.qpos[:3].copy(),
             f"heca_{self.name}_rot": quat,
-            f"heca_{self.name}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
+            f"heca_{self.name}_yaw": np.array(
+                [lie.SO3(wxyz=quat).compute_yaw_radians()]
+            ),
             f"heca_{self.name}_ste": np.array([0]),
             f"heca_{self.name}_ste_min": np.array([0]),
             f"heca_{self.name}_ste_max": np.array([0]),

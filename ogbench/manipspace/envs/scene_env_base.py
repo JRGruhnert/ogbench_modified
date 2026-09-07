@@ -18,9 +18,141 @@ class SceneEnvBase(ManipSpaceEnv):
         self._cur_goal_ob = None
         self._cur_goal_rendered = None
         self._render_goal = False
+        self._min_object_dist = 0.07
+        self._joint_body_margin = 0.05
+        self._max_randomize_attempts = 100
+        self._p_combined_drawer_goal = 0.3
 
     def set_tasks(self):
         self.task_infos = []
+
+    def _randomizable_objects(self):
+        out = []
+        for obj in self.objects:
+            if getattr(obj, "joint_name", None) is None:
+                continue
+            if hasattr(obj, "_target_mocap_id") or hasattr(obj, "_target_val"):
+                out.append(obj)
+        return out
+
+    def _object_pts(self, obj):
+        """2D (x, y) world points of `obj` that must stay clear."""
+        jn = obj.joint_name
+        if hasattr(obj, "_target_mocap_id"):
+            # Free body: its base (plus the handle site where it exists).
+            pts = [self._data.joint(jn).qpos[:2].copy()]
+            hs = getattr(obj, "_handle_site_id", None)
+            if hs is None:
+                hs = getattr(obj, "_site_id", None)
+            if hs is not None:
+                pts.append(self._data.site_xpos[hs][:2].copy())
+            return pts
+        sid = getattr(obj, "_site_id", None)
+        return [self._data.site_xpos[sid][:2].copy()] if sid is not None else []
+
+    def _slide_sweep(self, obj):
+        jn = obj.joint_name
+        if self._model.joint(jn).type != mujoco.mjtJoint.mjJNT_SLIDE:
+            return None
+        pr = getattr(obj, "pos_range", None)
+        sid = getattr(obj, "_site_id", None)
+        if pr is None or sid is None:
+            return None
+        bodyid = int(self._model.joint(jn).bodyid)
+        parent_xy = self._data.xpos[int(self._model.body_parentid[bodyid])][:2].copy()
+        q_now = float(self._data.joint(jn).qpos[0])
+        segs = []
+        for q in (float(pr[0]), float(pr[1])):
+            self._data.joint(jn).qpos[0] = q
+            mujoco.mj_kinematics(self._model, self._data)
+            segs.append((parent_xy, self._data.site_xpos[sid][:2].copy()))
+        self._data.joint(jn).qpos[0] = q_now
+        mujoco.mj_kinematics(self._model, self._data)
+        return segs
+
+    @staticmethod
+    def _dist_point_seg(p, a, b):
+        ab = b - a
+        denom = float(np.dot(ab, ab))
+        if denom <= 1e-12:  # degenerate segment -> point distance
+            return float(np.linalg.norm(p - a))
+        t = float(np.dot(p - a, ab) / denom)
+        t = float(np.clip(t, 0.0, 1.0))
+        return float(np.linalg.norm(p - (a + t * ab)))
+
+    def _scene_is_clear(self):
+        dmin = self._min_object_dist
+        margin = self._joint_body_margin
+        pts, segs = {}, {}
+        for obj in self._randomizable_objects():
+            if hasattr(obj, "_target_mocap_id"):
+                pts[obj.name] = self._object_pts(obj)
+            else:
+                sweep = self._slide_sweep(obj)
+                if sweep is None:
+                    pts[obj.name] = self._object_pts(obj)
+                else:
+                    segs[obj.name] = sweep
+
+        def far(a_pts, b_pts):
+            return min(np.linalg.norm(x - y) for x in a_pts for y in b_pts)
+
+        # free body vs free body
+        fnames = list(pts)
+        for i in range(len(fnames)):
+            for j in range(i + 1, len(fnames)):
+                if far(pts[fnames[i]], pts[fnames[j]]) < dmin:
+                    return False
+
+        # free body vs slide-joint swept body
+        for fn in fnames:
+            for sn, ssegs in segs.items():
+                for p in pts[fn]:
+                    for a, b in ssegs:
+                        if self._dist_point_seg(p, a, b) < dmin + margin:
+                            return False
+        return True
+
+    def _randomize_clear(self):
+        for _ in range(self._max_randomize_attempts):
+            for obj in self.objects:
+                obj.randomize(self)
+            mujoco.mj_kinematics(self._model, self._data)
+            if self._scene_is_clear():
+                return
+
+    def _maybe_set_combined_drawer_goal(self):
+        p = self._p_combined_drawer_goal
+        if p <= 0.0 or self.np_random.uniform() >= p:
+            return
+
+        for cube in self.objects:
+            if not (hasattr(cube, "_target_mocap_id") and hasattr(cube, "_containers")):
+                continue
+            for cont in cube._containers:
+                jn = getattr(cont, "joint_name", None)
+                pr = getattr(cont, "pos_range", None)
+                is_open = getattr(cont, "is_open", None)
+                if jn is None or pr is None or is_open is None:
+                    continue
+                if not is_open(self):
+                    continue  # drawer must be open so "place then close" works
+                closed_val = float(pr[1])  # closed = upper end of the slide range
+
+                q_now = float(self._data.joint(jn).qpos[0])
+                self._data.joint(jn).qpos[0] = closed_val
+                mujoco.mj_kinematics(self._model, self._data)
+                bin_center = cont.get_placement_pos(self)
+                valid = cont.contains(self, bin_center)
+                self._data.joint(jn).qpos[0] = q_now
+                mujoco.mj_kinematics(self._model, self._data)
+
+                if not valid:
+                    continue  # defensive: point must lie in the closed bin
+
+                self._set_object_target(cont, closed_val)
+                self._set_object_target(cube, (bin_center, lie.SO3.identity().wxyz))
+                return
 
     def initialize_episode(self):
         self._data.qpos[self._arm_joint_ids] = self._home_qpos
@@ -31,16 +163,17 @@ class SceneEnvBase(ManipSpaceEnv):
 
         if is_collection:
             self.initialize_arm()
-            for obj in self.objects:
-                obj.randomize(self)
+            self._randomize_clear()
             self._apply_button_states()
             self.set_new_target(return_info=False)
         elif is_randomized:
-            # Like task mode, but the goals are randomized instead of coming from a task spec
+
             self.initialize_arm()
+            self._randomize_clear()
             for obj in self.objects:
-                obj.randomize(self)
                 obj.handle_target(self)
+
+            self._maybe_set_combined_drawer_goal()
             self._apply_button_states()
 
             saved_qpos, saved_qvel = self._data.qpos.copy(), self._data.qvel.copy()
@@ -130,8 +263,6 @@ class SceneEnvBase(ManipSpaceEnv):
         names = [n for n, _ in available]
         raw = np.array([w for _, w in available], dtype=float)
 
-        # Inverse-frequency balancing: make under-selected tasks more likely while
-        # still respecting each object's availability weight.
         counts = np.array(
             [self._task_selection_counts.get(n, 0) for n in names], dtype=float
         )
@@ -145,8 +276,14 @@ class SceneEnvBase(ManipSpaceEnv):
 
         for obj in self.objects:
             if obj.name == self._target_task:
-                obj.randomize(self)
-                obj.handle_target(self)
+                # Re-randomize the target until the scene stays clear (so the
+                # target object is always reachable and graspable).
+                for _ in range(self._max_randomize_attempts):
+                    obj.randomize(self)
+                    obj.handle_target(self)
+                    mujoco.mj_kinematics(self._model, self._data)
+                    if self._scene_is_clear():
+                        break
                 break
 
         mujoco.mj_kinematics(self._model, self._data)
@@ -245,9 +382,6 @@ class SceneEnvBase(ManipSpaceEnv):
                     xy_max=[float(hi[0]), float(hi[1])],
                 )
             else:
-                # Remaining static objects (e.g. buttons): derive the assembly
-                # body from their geoms (walk up to the top-level body) and use
-                # its footprint.
                 gids = getattr(obj, "_geom_ids", None)
                 if not gids:
                     continue
@@ -282,12 +416,6 @@ class SceneEnvBase(ManipSpaceEnv):
         return out
 
     def _body_planar_radius(self, body_ids):
-        """Max x-y distance from a body frame origin to any of its geoms.
-
-        Used to pad spawn/reach rectangles by the object's own size. For
-        rotated parts this is an upper bound of the planar extent, which is the
-        right thing when the object's orientation is free/random.
-        """
         m = self._model
         if not isinstance(body_ids, (list, tuple)):
             body_ids = [body_ids]
@@ -299,9 +427,6 @@ class SceneEnvBase(ManipSpaceEnv):
             s = m.geom_size[gid]
             gt = int(m.geom_type[gid])
             if gt == mujoco.mjtGeom.mjGEOM_BOX:
-                # Farthest corner distance from the body origin (rotating the
-                # whole object about the origin preserves corner norms, so this
-                # stays valid for arbitrary yaw).
                 shape = float(np.hypot(abs(px) + s[0], abs(py) + s[1]))
             elif gt == mujoco.mjtGeom.mjGEOM_SPHERE:
                 shape = float(np.hypot(px, py) + s[0])
@@ -348,13 +473,6 @@ class SceneEnvBase(ManipSpaceEnv):
         return self._data.site_xpos[site_id][:2].copy()
 
     def _body_xy_aabb(self, body_ids):
-        """World x-y bounding box (geom surfaces included) of the given bodies.
-
-        Includes mesh geometry (vertices transformed into the world frame), so
-        the box reflects the full occupied footprint of the part, not just the
-        collision primitives. Evaluated at the *current* state, so call it
-        after moving the joint to the pose you want to measure.
-        """
         m, d = self._model, self._data
         if not isinstance(body_ids, (list, tuple)):
             body_ids = [body_ids]
@@ -374,8 +492,6 @@ class SceneEnvBase(ManipSpaceEnv):
                     world = verts @ R.T + p  # (n,3)
                     pts.append(world[:, :2])
                 continue
-            # Convex-primitive half-extent along each world axis (rotation aware
-            # via the geom's world rotation), enough for a footprint box.
             h = np.abs(R) @ np.asarray(s[:3], dtype=float)
             pts.append(
                 np.array([[p[0] + h[0], p[1] + h[1]], [p[0] - h[0], p[1] - h[1]]])
@@ -386,7 +502,6 @@ class SceneEnvBase(ManipSpaceEnv):
         return allp.min(axis=0), allp.max(axis=0)
 
     def _joint_reach_boundary(self, obj):
-        """Prismatic strip (rect) or revolute arc for a jointed object."""
         jid = self._model.joint(obj.joint_name).id
         jt = int(self._model.jnt_type[jid])
         site = obj._site_id
@@ -422,8 +537,7 @@ class SceneEnvBase(ManipSpaceEnv):
             r = float(np.linalg.norm(A - pivot))
             a0 = float(np.arctan2(A[1] - pivot[1], A[0] - pivot[0]))
             a1 = float(np.arctan2(B[1] - pivot[1], B[0] - pivot[0]))
-            # Direction: sample the midpoint of the range and see which way the
-            # handle moves from the lo-angle to the hi-angle.
+
             am = float(
                 np.arctan2(
                     self._site_xy_at(obj, 0.5 * (lo + hi), site)[1] - pivot[1],
@@ -727,7 +841,17 @@ class SceneEnvBase(ManipSpaceEnv):
             q = float(np.clip(q, pos_range[0], pos_range[1]))
         return q
 
-    def step_scene(self, info_dict):
+    def step_scene(self, info_dict, rand_noise=0.0, fail_noise=0.0):
+        """Teleport the requested states into the scene.
+
+        One outcome is sampled per call:
+        - normal (prob 1 - rand_noise - fail_noise): apply the requested values,
+        - random  (prob rand_noise): set every target to a random state sampled
+          like its normal spawning (goals are preserved),
+        - fail    (prob fail_noise): apply nothing — as if the step never ran.
+        Observation / success / reward are computed from the actual resulting
+        scene in every case.
+        """
         self.pre_step()
 
         # Parse requested updates.
@@ -737,11 +861,47 @@ class SceneEnvBase(ManipSpaceEnv):
             if value is not None:
                 targets[obj.name] = (obj, value)
 
-        for name, (obj, value) in targets.items():
-            self._set_current(obj, value)
-            joint_name = getattr(obj, "joint_name", None)
-            if joint_name is not None:
-                self._data.joint(joint_name).qvel[:] = 0.0
+        if rand_noise < 0.0 or fail_noise < 0.0 or rand_noise + fail_noise > 1.0 + 1e-9:
+            raise ValueError(
+                f"rand_noise={rand_noise} and fail_noise={fail_noise} must be "
+                "in [0, 1] and sum to at most 1."
+            )
+
+        outcome = "apply"
+        if targets and rand_noise + fail_noise > 0.0:
+            roll = self.np_random.uniform()
+            if roll < fail_noise:
+                outcome = "fail"
+            elif roll < fail_noise + rand_noise:
+                outcome = "random"
+
+        if outcome == "fail":
+            # Nothing is applied — the scene stays as it was.
+            pass
+        elif outcome == "random":
+            # Set each target to a random state (sampled like its normal spawn),
+            # preserving the task goals (randomize may overwrite free-body
+            # targets).
+            for name, (obj, value) in targets.items():
+                saved_goal = None
+                if hasattr(obj, "_target_mocap_id"):
+                    saved_goal = (
+                        self._data.mocap_pos[obj._target_mocap_id].copy(),
+                        self._data.mocap_quat[obj._target_mocap_id].copy(),
+                    )
+                obj.randomize(self)
+                if saved_goal is not None:
+                    self._data.mocap_pos[obj._target_mocap_id] = saved_goal[0]
+                    self._data.mocap_quat[obj._target_mocap_id] = saved_goal[1]
+                joint_name = getattr(obj, "joint_name", None)
+                if joint_name is not None:
+                    self._data.joint(joint_name).qvel[:] = 0.0
+        else:
+            for name, (obj, value) in targets.items():
+                self._set_current(obj, value)
+                joint_name = getattr(obj, "joint_name", None)
+                if joint_name is not None:
+                    self._data.joint(joint_name).qvel[:] = 0.0
 
         self._apply_button_states()
         self._success = self._evaluate_success(self._compute_successes())

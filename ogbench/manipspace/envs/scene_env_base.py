@@ -280,6 +280,9 @@ class SceneEnvBase(ManipSpaceEnv):
                 # target object is always reachable and graspable).
                 for _ in range(self._max_randomize_attempts):
                     obj.randomize(self)
+                    # Sync frames first: handle_target reads handle/container
+                    # sites, which would otherwise be stale after randomize().
+                    mujoco.mj_kinematics(self._model, self._data)
                     obj.handle_target(self)
                     mujoco.mj_kinematics(self._model, self._data)
                     if self._scene_is_clear():
@@ -757,12 +760,6 @@ class SceneEnvBase(ManipSpaceEnv):
         return True
 
     def _object_state_from_info(self, obj, info_dict, use_target_keys=False):
-        """Parse a settable value for `obj` from a step/reset info dict.
-
-        With `use_target_keys=True` the `heca_target_*` goal keys are read
-        (e.g. `heca_target_peg0_pos`), otherwise the current-state `heca_*`
-        keys are used (e.g. `heca_peg0_pos`).
-        """
         prefix = "target_" if use_target_keys else ""
 
         if hasattr(obj, "_target_button_states"):
@@ -821,6 +818,9 @@ class SceneEnvBase(ManipSpaceEnv):
 
         joint = self._data.joint(obj.joint_name)
         q0 = float(joint.qpos[0])
+        # Sync derived frames to the current qpos before measuring, otherwise
+        # p0 can be stale (site_xpos from before the last qpos write).
+        mujoco.mj_kinematics(self._model, self._data)
         p0 = self._data.site_xpos[obj._site_id].copy()
 
         # Measure the world displacement of the handle for +1 joint unit.
@@ -842,16 +842,6 @@ class SceneEnvBase(ManipSpaceEnv):
         return q
 
     def step_scene(self, info_dict, rand_noise=0.0, fail_noise=0.0):
-        """Teleport the requested states into the scene.
-
-        One outcome is sampled per call:
-        - normal (prob 1 - rand_noise - fail_noise): apply the requested values,
-        - random  (prob rand_noise): set every target to a random state sampled
-          like its normal spawning (goals are preserved),
-        - fail    (prob fail_noise): apply nothing — as if the step never ran.
-        Observation / success / reward are computed from the actual resulting
-        scene in every case.
-        """
         self.pre_step()
 
         # Parse requested updates.
@@ -879,9 +869,6 @@ class SceneEnvBase(ManipSpaceEnv):
             # Nothing is applied — the scene stays as it was.
             pass
         elif outcome == "random":
-            # Set each target to a random state (sampled like its normal spawn),
-            # preserving the task goals (randomize may overwrite free-body
-            # targets).
             for name, (obj, value) in targets.items():
                 saved_goal = None
                 if hasattr(obj, "_target_mocap_id"):
@@ -897,11 +884,18 @@ class SceneEnvBase(ManipSpaceEnv):
                 if joint_name is not None:
                     self._data.joint(joint_name).qvel[:] = 0.0
         else:
+            target_names = set(targets)
             for name, (obj, value) in targets.items():
+                riders, old_q = None, None
+                if self._is_slide_container(obj):
+                    old_q = float(self._data.joint(obj.joint_name).qpos[0])
+                    riders = self._free_bodies_inside(obj, skip=target_names)
                 self._set_current(obj, value)
                 joint_name = getattr(obj, "joint_name", None)
                 if joint_name is not None:
                     self._data.joint(joint_name).qvel[:] = 0.0
+                if riders is not None:
+                    self._ride_contents(obj, riders, old_q, value)
 
         self._apply_button_states()
         self._success = self._evaluate_success(self._compute_successes())
@@ -915,22 +909,12 @@ class SceneEnvBase(ManipSpaceEnv):
         return ob, reward, terminated, truncated, info
 
     def set_start(self, info_dict, return_info=True):
-        """Teleport the scene to a start configuration (ignores locks).
-
-        Entities in `info_dict` are set exactly to their requested values.
-        All other entities are randomized, and their goal is pinned to their
-        (random) current state so start == goal for them and they never block
-        success. Pair with `set_goal` for evaluation.
-        """
-        # Parse requested updates.
         targets = {}
         for obj in self.objects:
             value = self._object_state_from_info(obj, info_dict)
             if value is not None:
                 targets[obj.name] = (obj, value)
 
-        # Apply every requested state exactly (locks are ignored: this is a
-        # reset-like teleport to a desired start configuration).
         for name, (obj, value) in targets.items():
             obj.set_state(self, value)
 
@@ -938,8 +922,6 @@ class SceneEnvBase(ManipSpaceEnv):
             if joint_name is not None:
                 self._data.joint(joint_name).qvel[:] = 0.0
 
-        # Entities not part of the start configuration: randomize and pin the
-        # goal to the randomized current state (start == goal for them).
         for obj in self.objects:
             if obj.name in targets:
                 continue
@@ -962,11 +944,6 @@ class SceneEnvBase(ManipSpaceEnv):
             return self.compute_observation(), self.get_reset_info()
 
     def _set_current(self, obj, value):
-        """Set only the *current* state of an object, leaving its goal untouched.
-
-        Mirror of `_set_object_target` (goal only): free bodies -> joint qpos,
-        articulated objects -> joint value, buttons -> `_cur_state`.
-        """
         if hasattr(obj, "_target_mocap_id"):
             pos, quat = value
             self._data.joint(obj.joint_name).qpos[:3] = pos
@@ -978,13 +955,51 @@ class SceneEnvBase(ManipSpaceEnv):
         elif hasattr(obj, "_target_button_states"):
             obj._cur_state[0] = int(round(float(np.asarray(value).ravel()[0])))
 
-    def _set_object_target(self, obj, value):
-        """Set only the *goal* (target) of an object, leaving its current state.
+    def _is_slide_container(self, obj) -> bool:
+        """True for a slide-joint object that can contain free bodies."""
+        jn = getattr(obj, "joint_name", None)
+        if jn is None or not hasattr(obj, "contains"):
+            return False
+        jid = self._model.joint(jn).id
+        return int(self._model.jnt_type[jid]) == mujoco.mjtJoint.mjJNT_SLIDE
 
-        Free bodies: target mocap pose. Articulated objects: `_target_val`
-        (plus the visual goal site where the object exposes `_set_site`).
-        Buttons: `_target_button_states`.
-        """
+    def _free_bodies_inside(self, container, skip=()):
+        """Free bodies whose center is currently inside `container`."""
+        out = []
+        for o in self.objects:
+            if o.name in skip or not hasattr(o, "_target_mocap_id"):
+                continue
+            pos = self._data.joint(o.joint_name).qpos[:3]
+            if container.contains(self, pos):
+                out.append(o)
+        return out
+
+    def _slide_axis_world(self, obj):
+        """World displacement of the container's handle per +1 joint unit."""
+        q0 = float(self._data.joint(obj.joint_name).qpos[0])
+        # Make sure site frames reflect the current qpos before measuring.
+        mujoco.mj_kinematics(self._model, self._data)
+        p0 = self._data.site_xpos[obj._site_id].copy()
+        self._data.joint(obj.joint_name).qpos[0] = q0 + 1.0
+        mujoco.mj_kinematics(self._model, self._data)
+        axis = self._data.site_xpos[obj._site_id].copy() - p0
+        self._data.joint(obj.joint_name).qpos[0] = q0
+        mujoco.mj_kinematics(self._model, self._data)
+        return axis
+
+    def _ride_contents(self, container, riders, old_q, new_q):
+        if not riders:
+            return
+        delta = float(new_q) - float(old_q)
+        if abs(delta) < 1e-12:
+            return
+        shift = delta * self._slide_axis_world(container)
+        for o in riders:
+            self._data.joint(o.joint_name).qpos[:3] += shift
+            self._data.joint(o.joint_name).qvel[:] = 0.0
+        mujoco.mj_kinematics(self._model, self._data)
+
+    def _set_object_target(self, obj, value):
         if hasattr(obj, "_target_mocap_id"):
             pos, quat = value
             self._data.mocap_pos[obj._target_mocap_id] = pos
@@ -1013,14 +1028,7 @@ class SceneEnvBase(ManipSpaceEnv):
             obj._target_button_states[0] = int(obj._cur_state[0])
 
     def set_goal(self, info_dict, return_info=True):
-        """Set only the goal (target) state of the entities in `info_dict`.
-
-        The current scene is untouched — only each object's goal changes
-        (target mocap pose, `_target_val`, or `_target_button_states`).
-        Combine with `set_start`: after the model reaches the goals,
-        `info["success"]` / `compute_reward()` return True. The goal
-        observation (`reset_info["goal"]`) is recomputed accordingly.
-        """
+        """Set only the goal (target) state of the entities in `info_dict`."""
         targets = {}
         for obj in self.objects:
             value = self._object_state_from_info(obj, info_dict, use_target_keys=True)

@@ -22,6 +22,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._joint_body_margin = 0.05
         self._max_randomize_attempts = 100
         self._p_combined_drawer_goal = 0.3
+        self._p_leave_drawer_open = 0.5
 
     def set_tasks(self):
         self.task_infos = []
@@ -123,8 +124,6 @@ class SceneEnvBase(ManipSpaceEnv):
 
     def _maybe_set_combined_drawer_goal(self):
         p = self._p_combined_drawer_goal
-        if p <= 0.0 or self.np_random.uniform() >= p:
-            return
 
         for cube in self.objects:
             if not (hasattr(cube, "_target_mocap_id") and hasattr(cube, "_containers")):
@@ -136,11 +135,18 @@ class SceneEnvBase(ManipSpaceEnv):
                 if jn is None or pr is None or is_open is None:
                     continue
                 if not is_open(self):
-                    continue  # drawer must be open so "place then close" works
-                closed_val = float(pr[1])  # closed = upper end of the slide range
+                    continue  # drawer must start open so the cube can be placed in it
+
+                cube_goal = self._data.mocap_pos[cube._target_mocap_id][:3].copy()
+                already_inside = bool(cont.contains(self, cube_goal))
+                if not already_inside and (p <= 0.0 or self.np_random.uniform() >= p):
+                    continue  # cube stays out; keep the drawer's standalone goal
+
+                leave_open = self.np_random.uniform() < self._p_leave_drawer_open
+                goal_val = float(pr[0]) if leave_open else float(pr[1])
 
                 q_now = float(self._data.joint(jn).qpos[0])
-                self._data.joint(jn).qpos[0] = closed_val
+                self._data.joint(jn).qpos[0] = goal_val
                 mujoco.mj_kinematics(self._model, self._data)
                 bin_center = cont.get_placement_pos(self)
                 valid = cont.contains(self, bin_center)
@@ -148,9 +154,9 @@ class SceneEnvBase(ManipSpaceEnv):
                 mujoco.mj_kinematics(self._model, self._data)
 
                 if not valid:
-                    continue  # defensive: point must lie in the closed bin
+                    continue
 
-                self._set_object_target(cont, closed_val)
+                self._set_object_target(cont, goal_val)
                 self._set_object_target(cube, (bin_center, lie.SO3.identity().wxyz))
                 return
 
@@ -841,6 +847,135 @@ class SceneEnvBase(ManipSpaceEnv):
             q = float(np.clip(q, pos_range[0], pos_range[1]))
         return q
 
+    def _free_body_bottom_offset(self, obj):
+        fz = getattr(obj, "floor_z", None)
+        if fz is not None:
+            return float(fz)
+        jid = self._model.joint(obj.joint_name).id
+        root = int(self._model.jnt_bodyid[jid])
+        own = self._subtree_body_ids(root)
+        m = self._model
+        off = 0.0
+        for gid in range(m.ngeom):
+            if int(m.geom_bodyid[gid]) not in own:
+                continue
+            gt = int(m.geom_type[gid])
+            s = m.geom_size[gid]
+            if gt == mujoco.mjtGeom.mjGEOM_BOX:
+                off = max(off, float(s[2]))
+            elif gt == mujoco.mjtGeom.mjGEOM_SPHERE:
+                off = max(off, float(s[0]))
+            elif gt in (mujoco.mjtGeom.mjGEOM_CYLINDER, mujoco.mjtGeom.mjGEOM_CAPSULE):
+                off = max(off, float(s[0] + s[1]))
+            else:
+                off = max(off, float(np.max(s)))
+        return off
+
+    def _ray_down_support(self, xy, z0, obj):
+        m, d = self._model, self._data
+        jid = m.joint(obj.joint_name).id
+        own_bodies = set(self._subtree_body_ids(int(m.jnt_bodyid[jid])))
+        own_ct, own_ca = [], []
+        for g in range(m.ngeom):
+            if int(m.geom_bodyid[g]) in own_bodies and (
+                m.geom_contype[g] or m.geom_conaffinity[g]
+            ):
+                own_ct.append(int(m.geom_contype[g]))
+                own_ca.append(int(m.geom_conaffinity[g]))
+
+        saved = m.geom_group.copy()
+        mask = np.ones(6, dtype=np.uint8)
+        mask[5] = 0
+        try:
+            for gid in range(m.ngeom):
+                body = int(m.geom_bodyid[gid])
+                bname = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, body) or ""
+                ct = int(m.geom_contype[gid])
+                ca = int(m.geom_conaffinity[gid])
+                collides = any(
+                    (ct & ca_o) or (ct_o & ca) for ct_o, ca_o in zip(own_ct, own_ca)
+                )
+                excluded = (
+                    body in own_bodies
+                    or not collides
+                    or "ur5e" in bname
+                    or "robotiq" in bname
+                    or "target" in bname
+                )
+                if excluded:
+                    m.geom_group[gid] = 5
+            best = None
+            pnt = np.array([xy[0], xy[1], z0], dtype=np.float64)
+            vec = np.array([0.0, 0.0, -1.0])
+            geomid = np.zeros(1, dtype=np.int32)
+            for flg in (True, False):  # static and dynamic geoms
+                dist = mujoco.mj_ray(
+                    m,
+                    d,
+                    pnt,
+                    vec,
+                    geomgroup=mask,
+                    flg_static=flg,
+                    bodyexclude=-1,
+                    geomid=geomid,
+                )
+                if dist >= 0 and (best is None or dist < best):
+                    best = float(dist)
+            return best
+        finally:
+            m.geom_group[:] = saved
+
+    def _snap_teleported_free_bodies(self, names):
+        mujoco.mj_forward(self._model, self._data)
+        moved = False
+        for obj in self.objects:
+            if obj.name not in names or not hasattr(obj, "_target_mocap_id"):
+                continue
+            jn = getattr(obj, "joint_name", None)
+            if jn is None:
+                continue
+            jid = self._model.joint(jn).id
+            root = int(self._model.jnt_bodyid[jid])
+            own = self._subtree_body_ids(root)
+            offset = self._free_body_bottom_offset(obj)
+            if offset <= 0.0:
+                continue
+            adr = int(self._model.joint(jn).qposadr[0])
+            origin = self._data.qpos[adr : adr + 3].copy()
+            bottom_z = float(origin[2]) - offset
+
+            # Footprint sample points (center + AABB corners in the world frame).
+            lo, hi = self._body_xy_aabb(own)
+            cx, cy = 0.5 * (lo + hi)
+            hx = max(0.5 * (hi[0] - lo[0]), 1e-4)
+            hy = max(0.5 * (hi[1] - lo[1]), 1e-4)
+            samples = [
+                (cx, cy),
+                (cx - hx, cy - hy),
+                (cx + hx, cy - hy),
+                (cx - hx, cy + hy),
+                (cx + hx, cy + hy),
+            ]
+
+            probe_z = bottom_z + 1e-4
+            gap = None
+            for sx, sy in samples:
+                d = self._ray_down_support((sx, sy), probe_z, obj)
+                if d is not None:
+                    d = max(d - 1e-4, 0.0)
+                    if gap is None or d < gap:
+                        gap = d
+            if gap is None or gap <= 1e-3:
+                continue  # supported (touching) or nothing below -> keep
+            new_z = origin[2] - gap
+            if new_z < origin[2] - 1e-6:
+                self._data.qpos[adr + 2] = new_z
+                dof = int(self._model.joint(jn).dofadr[0])
+                self._data.qvel[dof : dof + 6] = 0.0
+                moved = True
+        if moved:
+            mujoco.mj_forward(self._model, self._data)
+
     def step_scene(self, info_dict, rand_noise=0.0, fail_noise=0.0):
         self.pre_step()
 
@@ -896,6 +1031,8 @@ class SceneEnvBase(ManipSpaceEnv):
                     self._data.joint(joint_name).qvel[:] = 0.0
                 if riders is not None:
                     self._ride_contents(obj, riders, old_q, value)
+
+            self._snap_teleported_free_bodies(target_names)
 
         self._apply_button_states()
         self._success = self._evaluate_success(self._compute_successes())

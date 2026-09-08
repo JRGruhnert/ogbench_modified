@@ -73,8 +73,9 @@ class ButtonObject(SceneObject):
         self._target_button_states[0] = (self._cur_state[0] + 1) % self._num_states
 
     def set_state(self, env, value):
-        self._cur_state[0] = value
-        self._target_button_states[0] = value
+        v = int(value) % self._num_states
+        self._cur_state[0] = v
+        self._target_button_states[0] = v
 
     def get_target_from_task(self, task_info):
         return task_info.get(self.name)

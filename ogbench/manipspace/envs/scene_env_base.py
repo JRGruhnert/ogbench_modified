@@ -784,7 +784,11 @@ class SceneEnvBase(ManipSpaceEnv):
             for suffix in ("_ang", "_sca"):
                 key = f"heca_{prefix}{obj.name}{suffix}"
                 if key in info_dict:
-                    return float(np.asarray(info_dict[key]).ravel()[0])
+                    val = float(np.asarray(info_dict[key]).ravel()[0])
+                    pos_range = getattr(obj, "pos_range", None)
+                    if pos_range is not None:
+                        val = float(np.clip(val, pos_range[0], pos_range[1]))
+                    return val
             return None
 
         if hasattr(obj, "_target_mocap_id"):
@@ -793,8 +797,6 @@ class SceneEnvBase(ManipSpaceEnv):
             rot_key = f"heca_{prefix}{obj.name}_rot"
             yaw_key = f"heca_{prefix}{obj.name}_yaw"
 
-            # Parse the requested orientation first (needed to recover the base
-            # from a handle-site position below).
             if rot_key in info_dict:
                 quat = np.asarray(info_dict[rot_key], dtype=float).ravel()
             elif yaw_key in info_dict:
@@ -824,11 +826,8 @@ class SceneEnvBase(ManipSpaceEnv):
 
         joint = self._data.joint(obj.joint_name)
         q0 = float(joint.qpos[0])
-        # Sync derived frames to the current qpos before measuring, otherwise
-        # p0 can be stale (site_xpos from before the last qpos write).
         mujoco.mj_kinematics(self._model, self._data)
         p0 = self._data.site_xpos[obj._site_id].copy()
-
         # Measure the world displacement of the handle for +1 joint unit.
         joint.qpos[0] = q0 + 1.0
         mujoco.mj_kinematics(self._model, self._data)
@@ -980,11 +979,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self.pre_step()
 
         # Parse requested updates.
-        targets = {}
-        for obj in self.objects:
-            value = self._object_state_from_info(obj, info_dict)
-            if value is not None:
-                targets[obj.name] = (obj, value)
+        targets = self._parse_targets(info_dict)
 
         if rand_noise < 0.0 or fail_noise < 0.0 or rand_noise + fail_noise > 1.0 + 1e-9:
             raise ValueError(
@@ -1000,38 +995,16 @@ class SceneEnvBase(ManipSpaceEnv):
             elif roll < fail_noise + rand_noise:
                 outcome = "random"
 
+        target_names = set(targets)
         if outcome == "fail":
-            # Nothing is applied — the scene stays as it was.
             pass
         elif outcome == "random":
             for name, (obj, value) in targets.items():
-                saved_goal = None
-                if hasattr(obj, "_target_mocap_id"):
-                    saved_goal = (
-                        self._data.mocap_pos[obj._target_mocap_id].copy(),
-                        self._data.mocap_quat[obj._target_mocap_id].copy(),
-                    )
-                obj.randomize(self)
-                if saved_goal is not None:
-                    self._data.mocap_pos[obj._target_mocap_id] = saved_goal[0]
-                    self._data.mocap_quat[obj._target_mocap_id] = saved_goal[1]
-                joint_name = getattr(obj, "joint_name", None)
-                if joint_name is not None:
-                    self._data.joint(joint_name).qvel[:] = 0.0
+                self._randomize_target_state(obj, skip=target_names)
+            self._snap_teleported_free_bodies(target_names)
         else:
-            target_names = set(targets)
             for name, (obj, value) in targets.items():
-                riders, old_q = None, None
-                if self._is_slide_container(obj):
-                    old_q = float(self._data.joint(obj.joint_name).qpos[0])
-                    riders = self._free_bodies_inside(obj, skip=target_names)
-                self._set_current(obj, value)
-                joint_name = getattr(obj, "joint_name", None)
-                if joint_name is not None:
-                    self._data.joint(joint_name).qvel[:] = 0.0
-                if riders is not None:
-                    self._ride_contents(obj, riders, old_q, value)
-
+                self._apply_target_state(obj, value, skip=target_names)
             self._snap_teleported_free_bodies(target_names)
 
         self._apply_button_states()
@@ -1046,11 +1019,7 @@ class SceneEnvBase(ManipSpaceEnv):
         return ob, reward, terminated, truncated, info
 
     def set_start(self, info_dict, return_info=True):
-        targets = {}
-        for obj in self.objects:
-            value = self._object_state_from_info(obj, info_dict)
-            if value is not None:
-                targets[obj.name] = (obj, value)
+        targets = self._parse_targets(info_dict)
 
         for name, (obj, value) in targets.items():
             obj.set_state(self, value)
@@ -1090,7 +1059,9 @@ class SceneEnvBase(ManipSpaceEnv):
                 np.asarray(value).ravel()[0]
             )
         elif hasattr(obj, "_target_button_states"):
-            obj._cur_state[0] = int(round(float(np.asarray(value).ravel()[0])))
+            obj._cur_state[0] = (
+                int(round(float(np.asarray(value).ravel()[0]))) % obj._num_states
+            )
 
     def _is_slide_container(self, obj) -> bool:
         """True for a slide-joint object that can contain free bodies."""
@@ -1136,6 +1107,67 @@ class SceneEnvBase(ManipSpaceEnv):
             self._data.joint(o.joint_name).qvel[:] = 0.0
         mujoco.mj_kinematics(self._model, self._data)
 
+    def _parse_targets(self, info_dict, goal_keys=False):
+        """Parse the settable (obj, value) pairs from an info dict.
+
+        With `goal_keys=True`, the `heca_target_*` goal keys are preferred and
+        fall back to the plain `heca_*` keys (used by `set_goal`).
+        """
+        targets = {}
+        for obj in self.objects:
+            if goal_keys:
+                value = self._object_state_from_info(
+                    obj, info_dict, use_target_keys=True
+                )
+                if value is None:
+                    value = self._object_state_from_info(obj, info_dict)
+            else:
+                value = self._object_state_from_info(obj, info_dict)
+            if value is not None:
+                targets[obj.name] = (obj, value)
+        return targets
+
+    def _move_target_state(self, obj, setter, skip=()):
+        """Move `obj` (via `setter`) and carry any free bodies inside it.
+
+        `setter(obj)` performs the actual state change. If `obj` is a slide
+        container (drawer/window/slider), free bodies currently inside are
+        recorded before the move and shifted along with it afterwards.
+        """
+        riders, old_q = None, None
+        if self._is_slide_container(obj):
+            old_q = float(self._data.joint(obj.joint_name).qpos[0])
+            riders = self._free_bodies_inside(obj, skip=skip)
+        setter(obj)
+        joint_name = getattr(obj, "joint_name", None)
+        if joint_name is not None:
+            self._data.joint(joint_name).qvel[:] = 0.0
+        if riders is not None:
+            new_q = float(self._data.joint(obj.joint_name).qpos[0])
+            self._ride_contents(obj, riders, old_q, new_q)
+
+    def _apply_target_state(self, obj, value, skip=()):
+        """Apply a requested value to the object's current state (with carry)."""
+        self._move_target_state(obj, lambda o: self._set_current(o, value), skip=skip)
+
+    def _randomize_target_state(self, obj, skip=()):
+        """Set the object to a random spawn state (with carry), preserving its
+        goal — `randomize()` may overwrite free-body target mocaps."""
+
+        def setter(o):
+            saved_goal = None
+            if hasattr(o, "_target_mocap_id"):
+                saved_goal = (
+                    self._data.mocap_pos[o._target_mocap_id].copy(),
+                    self._data.mocap_quat[o._target_mocap_id].copy(),
+                )
+            o.randomize(self)
+            if saved_goal is not None:
+                self._data.mocap_pos[o._target_mocap_id] = saved_goal[0]
+                self._data.mocap_quat[o._target_mocap_id] = saved_goal[1]
+
+        self._move_target_state(obj, setter, skip=skip)
+
     def _set_object_target(self, obj, value):
         if hasattr(obj, "_target_mocap_id"):
             pos, quat = value
@@ -1148,8 +1180,8 @@ class SceneEnvBase(ManipSpaceEnv):
             if set_site is not None:
                 set_site(self, val)
         elif hasattr(obj, "_target_button_states"):
-            obj._target_button_states[0] = int(
-                round(float(np.asarray(value).ravel()[0]))
+            obj._target_button_states[0] = (
+                int(round(float(np.asarray(value).ravel()[0]))) % obj._num_states
             )
 
     def _pin_target_to_current(self, obj):
@@ -1166,13 +1198,8 @@ class SceneEnvBase(ManipSpaceEnv):
 
     def set_goal(self, info_dict, return_info=True):
         """Set only the goal (target) state of the entities in `info_dict`."""
-        targets = {}
-        for obj in self.objects:
-            value = self._object_state_from_info(obj, info_dict, use_target_keys=True)
-            if value is None:
-                value = self._object_state_from_info(obj, info_dict)
-            if value is not None:
-                targets[obj.name] = (obj, value)
+        # Prefer the goal keys (`heca_target_*`), falling back to `heca_*`.
+        targets = self._parse_targets(info_dict, goal_keys=True)
 
         # Set only the goals (targets), never the current state.
         for name, (obj, value) in targets.items():

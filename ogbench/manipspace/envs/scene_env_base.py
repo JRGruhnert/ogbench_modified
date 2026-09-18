@@ -21,7 +21,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._min_object_dist = 0.07
         self._joint_body_margin = 0.05
         self._max_randomize_attempts = 100
-        self._p_combined_drawer_goal = 0.3
+        self._p_combined_drawer_goal = 0.14
         self._p_leave_drawer_open = 0.5
 
     def set_tasks(self):
@@ -134,8 +134,6 @@ class SceneEnvBase(ManipSpaceEnv):
                 is_open = getattr(cont, "is_open", None)
                 if jn is None or pr is None or is_open is None:
                     continue
-                if not is_open(self):
-                    continue  # drawer must start open so the cube can be placed in it
 
                 cube_goal = self._data.mocap_pos[cube._target_mocap_id][:3].copy()
                 already_inside = bool(cont.contains(self, cube_goal))

@@ -19,10 +19,10 @@ class SceneEnvBase(ManipSpaceEnv):
         self._cur_goal_rendered = None
         self._render_goal = False
         self._min_object_dist = 0.07
-        self._joint_body_margin = 0.05
         self._max_randomize_attempts = 100
         self._p_combined_drawer_goal = 0.14
         self._p_leave_drawer_open = 0.5
+        self._apply_sampling_restrictions = True
 
     def set_tasks(self):
         self.task_infos = []
@@ -55,21 +55,13 @@ class SceneEnvBase(ManipSpaceEnv):
         jn = obj.joint_name
         if self._model.joint(jn).type != mujoco.mjtJoint.mjJNT_SLIDE:
             return None
-        pr = getattr(obj, "pos_range", None)
         sid = getattr(obj, "_site_id", None)
-        if pr is None or sid is None:
+        if sid is None:
             return None
+        mujoco.mj_kinematics(self._model, self._data)
         bodyid = int(self._model.joint(jn).bodyid)
         parent_xy = self._data.xpos[int(self._model.body_parentid[bodyid])][:2].copy()
-        q_now = float(self._data.joint(jn).qpos[0])
-        segs = []
-        for q in (float(pr[0]), float(pr[1])):
-            self._data.joint(jn).qpos[0] = q
-            mujoco.mj_kinematics(self._model, self._data)
-            segs.append((parent_xy, self._data.site_xpos[sid][:2].copy()))
-        self._data.joint(jn).qpos[0] = q_now
-        mujoco.mj_kinematics(self._model, self._data)
-        return segs
+        return [(parent_xy, self._data.site_xpos[sid][:2].copy())]
 
     @staticmethod
     def _dist_point_seg(p, a, b):
@@ -83,7 +75,6 @@ class SceneEnvBase(ManipSpaceEnv):
 
     def _scene_is_clear(self):
         dmin = self._min_object_dist
-        margin = self._joint_body_margin
         pts, segs = {}, {}
         for obj in self._randomizable_objects():
             if hasattr(obj, "_target_mocap_id"):
@@ -110,11 +101,16 @@ class SceneEnvBase(ManipSpaceEnv):
             for sn, ssegs in segs.items():
                 for p in pts[fn]:
                     for a, b in ssegs:
-                        if self._dist_point_seg(p, a, b) < dmin + margin:
+                        if self._dist_point_seg(p, a, b) < dmin:
                             return False
         return True
 
     def _randomize_clear(self):
+        if not self._apply_sampling_restrictions:
+            for obj in self.objects:
+                obj.randomize(self)
+            mujoco.mj_kinematics(self._model, self._data)
+            return
         for _ in range(self._max_randomize_attempts):
             for obj in self.objects:
                 obj.randomize(self)
@@ -158,6 +154,14 @@ class SceneEnvBase(ManipSpaceEnv):
                 self._set_object_target(cube, (bin_center, lie.SO3.identity().wxyz))
                 return
 
+    def reset(self, options=None, *args, **kwargs):
+        flag = kwargs.pop("sampling_restrictions", None)
+        if options is not None and "sampling_restrictions" in options:
+            flag = options["sampling_restrictions"]
+        if flag is not None:
+            self._apply_sampling_restrictions = bool(flag)
+        return super().reset(options=options, *args, **kwargs)
+
     def initialize_episode(self):
         self._data.qpos[self._arm_joint_ids] = self._home_qpos
         mujoco.mj_kinematics(self._model, self._data)
@@ -174,10 +178,14 @@ class SceneEnvBase(ManipSpaceEnv):
 
             self.initialize_arm()
             self._randomize_clear()
-            for obj in self.objects:
-                obj.handle_target(self)
+            for _ in range(self._max_randomize_attempts):
+                for obj in self.objects:
+                    obj.handle_target(self)
+                self._maybe_set_combined_drawer_goal()
+                mujoco.mj_kinematics(self._model, self._data)
+                if not self._evaluate_success(self._compute_successes()):
+                    break
 
-            self._maybe_set_combined_drawer_goal()
             self._apply_button_states()
 
             saved_qpos, saved_qvel = self._data.qpos.copy(), self._data.qvel.copy()
@@ -280,12 +288,15 @@ class SceneEnvBase(ManipSpaceEnv):
 
         for obj in self.objects:
             if obj.name == self._target_task:
-                # Re-randomize the target until the scene stays clear (so the
-                # target object is always reachable and graspable).
+                if not self._apply_sampling_restrictions:
+                    obj.randomize(self)
+                    mujoco.mj_kinematics(self._model, self._data)
+                    obj.handle_target(self)
+                    mujoco.mj_kinematics(self._model, self._data)
+                    break
+
                 for _ in range(self._max_randomize_attempts):
                     obj.randomize(self)
-                    # Sync frames first: handle_target reads handle/container
-                    # sites, which would otherwise be stale after randomize().
                     mujoco.mj_kinematics(self._model, self._data)
                     obj.handle_target(self)
                     mujoco.mj_kinematics(self._model, self._data)

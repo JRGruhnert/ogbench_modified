@@ -69,7 +69,9 @@ class WindowObject(SceneObject):
                     ).compute_yaw_radians()
                 ]
             ),
-            f"heca_{self.name}_ste": np.array([0]),#np.array([1 if self.is_closed(env) else 0]),
+            f"heca_{self.name}_ste": np.array(
+                [0]
+            ),  # np.array([1 if self.is_closed(env) else 0]),
             f"heca_{self.name}_ste_min": np.array([0]),
             f"heca_{self.name}_ste_max": np.array([0]),
             f"heca_{self.name}_sca": env._data.joint(self.joint_name).qpos.copy(),
@@ -92,7 +94,10 @@ class WindowObject(SceneObject):
 
     def handle_target(self, env):
         lo, hi = self.pos_range
-        self._target_val = hi if self.is_closed(env) else lo
+        if env._mode == "randomized":
+            self._target_val = hi if env.np_random.uniform() < 0.5 else lo
+        else:
+            self._target_val = hi if self.is_closed(env) else lo
         self._set_site(env, self._target_val)
 
     def _set_site(self, env, val):

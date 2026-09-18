@@ -70,6 +70,9 @@ class ButtonObject(SceneObject):
         }
 
     def handle_target(self, env):
+        if env._mode == "randomized":
+            self._target_button_states[0] = env.np_random.choice(self._num_states)
+            return
         self._target_button_states[0] = (self._cur_state[0] + 1) % self._num_states
 
     def set_state(self, env, value):

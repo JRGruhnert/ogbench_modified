@@ -18,7 +18,9 @@ class SliderObject(SceneObject):
     scaler = 1.0
     tolerance = 0.02
 
-    def __init__(self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), locks=None, pos_range=(0, 0.2)):
+    def __init__(
+        self, id=0, pos=(0, 0, 0), euler=(0, 0, 0), locks=None, pos_range=(0, 0.2)
+    ):
         super().__init__(id, pos, euler)
         if id > 0:
             self.joint_name = f"{self.joint_name}_{id}"
@@ -116,10 +118,9 @@ class SliderObject(SceneObject):
         lo, hi = self.pos_range
         cur = env._data.joint(self.joint_name).qpos[0]
         target = env.np_random.choice([lo, hi])
-        # If the current position already satisfies the chosen goal, use the
-        # opposite end so the task isn't already solved.
-        if abs(cur - target) <= self.tolerance:
-            target = hi if target == lo else lo
+        if env._mode != "randomized":
+            if abs(cur - target) <= self.tolerance:
+                target = hi if target == lo else lo
         self._target_val = target
         self._set_site(env, target)
 

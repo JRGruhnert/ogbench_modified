@@ -32,7 +32,9 @@ class LidObject(SceneObject):
         self._target_mocap_id = env._model.body(
             self._jname("box_lid_target_0")
         ).mocapid[0]
-        self._handle_site_id = env._model.site(self._jname("box_lid_handle_center_0")).id
+        self._handle_site_id = env._model.site(
+            self._jname("box_lid_handle_center_0")
+        ).id
 
     def randomize(self, env):
         bounds = (
@@ -42,12 +44,20 @@ class LidObject(SceneObject):
         )
         xy = env.np_random.uniform(*bounds)
         env._data.joint(self.joint_name).qpos[:3] = (*xy, self.floor_z)
-        env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
+        env._data.joint(self.joint_name).qpos[3:] = lie.SO3.from_z_radians(
+            env.np_random.uniform(0, 2 * np.pi)
+        ).wxyz.tolist()
         # Init mocap to a random goal — handle_target overwrites when selected.
-        bounds = self._sampling_bounds if self._sampling_bounds is not None else [[0.3, -0.3], [0.55, 0.3]]
+        bounds = (
+            self._sampling_bounds
+            if self._sampling_bounds is not None
+            else [[0.3, -0.3], [0.55, 0.3]]
+        )
         xy = env.np_random.uniform(*bounds)
         env._data.mocap_pos[self._target_mocap_id] = (*xy, self.floor_z)
-        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(env.np_random.uniform(0, 2 * np.pi)).wxyz.tolist()
+        env._data.mocap_quat[self._target_mocap_id] = lie.SO3.from_z_radians(
+            env.np_random.uniform(0, 2 * np.pi)
+        ).wxyz.tolist()
 
     def init_to_goal(self, env, task_info):
         xyz = task_info["goal"]["lid_xyzs"][0]
@@ -95,7 +105,9 @@ class LidObject(SceneObject):
                 env._model.site(self._jname("box_lid_handle_center_0")).id
             ].copy(),
             f"heca_{self.name}_rot": quat,
-            f"heca_{self.name}_yaw": np.array([lie.SO3(wxyz=quat).compute_yaw_radians()]),
+            f"heca_{self.name}_yaw": np.array(
+                [lie.SO3(wxyz=quat).compute_yaw_radians()]
+            ),
             f"heca_{self.name}_ste": np.array([0]),
             f"heca_{self.name}_ste_min": np.array([0]),
             f"heca_{self.name}_ste_max": np.array([0]),
@@ -117,6 +129,16 @@ class LidObject(SceneObject):
             return 0.0
         return 1.0
 
+    @staticmethod
+    def _container_yaw(env, container):
+        """Yaw of the container's opening (the frame `contains()` works in)."""
+        site_id = getattr(container, "_goal_site_id", None)
+        if site_id is not None:
+            mat = env._data.site_xmat[site_id].reshape(3, 3)
+        else:
+            mat = env._data.xmat[container._body_id].reshape(3, 3)
+        return float(lie.SO3.from_matrix(mat).compute_yaw_radians())
+
     def handle_target(self, env):
         available = not self._is_inside_any_container(env) if self._containers else True
         if not available:
@@ -128,6 +150,7 @@ class LidObject(SceneObject):
         if use_container:
             container = open_containers[env.np_random.choice(len(open_containers))]
             tar_pos = container._surface_pos(env)
+            yaw = self._container_yaw(env, container)
         else:
             bounds = (
                 self._sampling_bounds
@@ -140,8 +163,8 @@ class LidObject(SceneObject):
                 handle_pos = env._data.site_xpos[self._handle_site_id][:2]
                 if np.linalg.norm(handle_pos - tar_pos[:2]) > 0.08:
                     break
+            yaw = env.np_random.uniform(0, 2 * np.pi)
 
-        yaw = env.np_random.uniform(0, 2 * np.pi)
         tar_ori = lie.SO3.from_z_radians(yaw).wxyz.tolist()
 
         env._data.mocap_pos[self._target_mocap_id] = tar_pos

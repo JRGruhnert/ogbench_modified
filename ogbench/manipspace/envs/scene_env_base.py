@@ -19,6 +19,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._cur_goal_rendered = None
         self._render_goal = False
         self._min_object_dist = 0.07
+        self._min_penetration = -0.001
         self._max_randomize_attempts = 100
         self._p_combined_drawer_goal = 0.14
         self._p_leave_drawer_open = 0.5
@@ -73,7 +74,51 @@ class SceneEnvBase(ManipSpaceEnv):
         t = float(np.clip(t, 0.0, 1.0))
         return float(np.linalg.norm(p - (a + t * ab)))
 
+    def _is_arm_geom(self, geom_id):
+        body_id = int(np.ravel(self._model.geom_bodyid[geom_id])[0])
+        return self._model.body(body_id).name.startswith("ur5e")
+
+    def _frame_penetrations(self, tol=None, ignore_arm=False):
+        tol = self._min_penetration if tol is None else tol
+        mujoco.mj_forward(self._model, self._data)
+        out = []
+        for c in self._data.contact[: self._data.ncon]:
+            dist = float(c.dist)
+            if dist >= tol:
+                continue
+            if ignore_arm and (
+                self._is_arm_geom(c.geom1) or self._is_arm_geom(c.geom2)
+            ):
+                continue
+            out.append(dist)
+        return out
+
+    def _goal_frame_is_clear(self, objs=None):
+        objs = self.objects if objs is None else objs
+        saved_qpos, saved_qvel = self._data.qpos.copy(), self._data.qvel.copy()
+        saved_states = {
+            obj.name: obj._cur_state.copy()
+            for obj in self.objects
+            if hasattr(obj, "_cur_state")
+        }
+
+        for obj in objs:
+            self._set_object_to_target(obj)
+        self._apply_button_states()
+        ok = not self._frame_penetrations(ignore_arm=True)
+
+        self._data.qpos[:] = saved_qpos
+        self._data.qvel[:] = saved_qvel
+        for obj in self.objects:
+            if obj.name in saved_states:
+                obj._cur_state[:] = saved_states[obj.name]
+        self._apply_button_states()
+        return ok
+
     def _scene_is_clear(self):
+        if self._frame_penetrations():
+            return False
+
         dmin = self._min_object_dist
         pts, segs = {}, {}
         for obj in self._randomizable_objects():
@@ -183,7 +228,9 @@ class SceneEnvBase(ManipSpaceEnv):
                     obj.handle_target(self)
                 self._maybe_set_combined_drawer_goal()
                 mujoco.mj_kinematics(self._model, self._data)
-                if not self._evaluate_success(self._compute_successes()):
+                if not self._evaluate_success(self._compute_successes()) and (
+                    not self._apply_sampling_restrictions or self._goal_frame_is_clear()
+                ):
                     break
 
             self._apply_button_states()
@@ -300,7 +347,7 @@ class SceneEnvBase(ManipSpaceEnv):
                     mujoco.mj_kinematics(self._model, self._data)
                     obj.handle_target(self)
                     mujoco.mj_kinematics(self._model, self._data)
-                    if self._scene_is_clear():
+                    if self._scene_is_clear() and self._goal_frame_is_clear([obj]):
                         break
                 break
 

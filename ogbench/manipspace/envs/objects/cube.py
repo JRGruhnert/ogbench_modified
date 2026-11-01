@@ -109,7 +109,7 @@ class CubeObject(SceneObject):
     def compute_success(self, env):
         obj_pos = env._data.joint(self.joint_name).qpos[:3]
         tar_pos = env._data.mocap_pos[self._target_mocap_id]
-        if env._mode == "randomized":
+        if env._mode == "randomized" or getattr(env, "_container_wide_success", False):
             for c in self._containers:
                 if c.contains(env, tar_pos):
                     return (bool(c.contains(env, obj_pos)), self.name)

@@ -11,6 +11,7 @@ class SceneEnvBase(ManipSpaceEnv):
         self._env_type = env_type
         self._objects = objects or []
         self._permute_blocks = permute_blocks
+        self._container_wide_success = bool(kwargs.pop("container_wide_success", False))
         super().__init__(*args, **kwargs)
         self._arm_sampling_bounds = np.asarray([[0.25, -0.2, 0.20], [0.6, 0.2, 0.35]])
         self._oracle_just_done = False
@@ -205,6 +206,13 @@ class SceneEnvBase(ManipSpaceEnv):
             flag = options["sampling_restrictions"]
         if flag is not None:
             self._apply_sampling_restrictions = bool(flag)
+
+        wide = kwargs.pop("container_wide_success", None)
+        if options is not None and "container_wide_success" in options:
+            wide = options["container_wide_success"]
+        if wide is not None:
+            self._container_wide_success = bool(wide)
+
         return super().reset(options=options, *args, **kwargs)
 
     def initialize_episode(self):
